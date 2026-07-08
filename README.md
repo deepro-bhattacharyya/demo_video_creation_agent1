@@ -79,7 +79,7 @@ is added.
 | AgenticQEAHub (external) | Agent catalog, docs, run event stream, run API |
 | Playwright | Log into the platform, drive the UI, record the run video |
 | Google Gemini | Generate the narration script |
-| TTS engine (ElevenLabs / Azure TTS) | Voice-over audio |
+| Google Gemini TTS | Voice-over audio (same API key as script generation) |
 | FFmpeg | Merge video + audio, produce the condensed cut |
 
 > **Note:** script generation currently runs on a personal Gemini API key for
@@ -172,8 +172,8 @@ class VideoState(TypedDict):
 | Language | Python 3.11+ |
 | Orchestration | LangGraph 1.0+ |
 | Browser capture | Playwright (video recording enabled) |
-| LLM | Anthropic Claude Sonnet 4.6 |
-| TTS | ElevenLabs / Azure Cognitive Services |
+| LLM | Google Gemini (script generation) |
+| TTS | Google Gemini TTS (same API key) |
 | Media assembly | FFmpeg |
 | API server | FastAPI |
 
@@ -293,8 +293,7 @@ a plain dict to the next one.
 ### Key Environment Variables
 
 ```env
-GEMINI_API_KEY=...            # personal key for now — replace before rollout
-TTS_API_KEY=...
+GEMINI_API_KEY=...            # covers both script generation and TTS voice-over
 AGENTICQEAHUB_BASE_URL=https://<platform-host>
 HUB_EMAIL=...                 # service/shared login, not a personal account
 HUB_PASSWORD=...              # stored in a secrets manager, never in code

@@ -1,0 +1,21 @@
+# Core orchestration
+langgraph>=0.2
+
+# Browser automation + screen recording
+playwright>=1.44
+
+# LLM for script generation + TTS for voice-over (both use the same Gemini API key)
+google-genai>=1.0
+
+# API server
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Config / env
+python-dotenv>=1.0
+
+# Logging
+structlog>=24.1
+
+# NOTE: FFmpeg is a system dependency, not a pip package.
+# Install separately — see docs/INSTALL.md for instructions.

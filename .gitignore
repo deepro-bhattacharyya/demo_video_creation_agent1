@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Generated media + scratch
+output/
+*.mp4
+*.webm
+*.wav
+*.mp3
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
