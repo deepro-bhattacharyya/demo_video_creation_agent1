@@ -11,20 +11,20 @@ Don't jump ahead — later phases depend on state and code produced by earlier o
 agent's spec from the platform without writing a single pixel of video.
 
 ### Setup
-- [ ] Confirm Python 3.11+, install `requirements.txt`
-- [ ] `playwright install chromium`
-- [ ] Copy `.env.example` to `.env` and fill in real values locally
-- [ ] Confirm `.env` is git-ignored and never committed
-- [ ] `app/config.py` loads all env vars in one place and fails loudly if one is missing
+- [x] Confirm Python 3.11+, install `requirements.txt`
+- [x] `playwright install chromium`
+- [x] Copy `.env.example` to `.env` and fill in real values locally
+- [x] Confirm `.env` is git-ignored and never committed
+- [x] `app/config.py` loads all env vars in one place and fails loudly if one is missing
 
 ### Platform client (`hub_client.py`)
-- [ ] `login(page)`: drive Playwright to `AGENTICQEAHUB_BASE_URL/marketplace` and authenticate
-- [ ] Confirm login succeeds (wait for a post-login element to confirm)
-- [ ] `get_agent_spec(agent_id)`: return `{"name": ..., "spec": ...}` from the platform
+- [x] `login(page)`: drive Playwright to `AGENTICQEAHUB_BASE_URL/marketplace` and authenticate
+- [x] Confirm login succeeds (wait for a post-login element to confirm)
+- [x] `get_agent_spec(agent_id)`: return `{"name": ..., "spec": ...}` from the platform
 
 ### `select_agent` node
-- [ ] Call `hub_client.get_agent_spec` and populate `agent_name` + `agent_spec` in state
-- [ ] Keep all UI selectors (login fields, buttons, nav) in `hub_client.py` only
+- [x] Call `hub_client.get_agent_spec` and populate `agent_name` + `agent_spec` in state
+- [x] Keep all UI selectors (login fields, buttons, nav) in `hub_client.py` only
 
 **Done when:** `select_agent` runs end-to-end and prints the agent name + spec for `defect-triaging-crewai`.
 
@@ -35,15 +35,15 @@ agent's spec from the platform without writing a single pixel of video.
 **Goal:** A real browser session runs the target agent and saves a 1920×1080 video to disk.
 
 ### `capture_run` node
-- [ ] Launch Playwright with `record_video_dir="output/raw"` and `record_video_size={"width": 1920, "height": 1080}`
-- [ ] Call `hub_client.login(page)` to authenticate
-- [ ] Navigate to the agent workspace: `?agent=<agent_id>&project=<project_id>`
-- [ ] Implement `run_agent_and_collect_events(page, agent_id)` in `hub_client.py`:
+- [x] Launch Playwright with `record_video_dir="output/raw"` and `record_video_size={"width": 1920, "height": 1080}`
+- [x] Call `hub_client.login(page)` to authenticate
+- [x] Navigate to the agent workspace: `?agent=<agent_id>&project=<project_id>`
+- [x] Implement `run_agent_and_collect_events(page, agent_id)` in `hub_client.py`:
   - Trigger the run
   - Wait for completion
   - Collect step/HITL events into `run_transcript`
-- [ ] Close the browser context to finalise the video file
-- [ ] Return `raw_video_path`, `run_transcript`, and `status: "captured"`
+- [x] Close the browser context to finalise the video file
+- [x] Return `raw_video_path`, `run_transcript`, and `status: "captured"`
 
 **Done when:** Running the two-node graph (`select_agent → capture_run`) produces a real `.webm`/`.mp4` in `output/raw/` and a non-empty `run_transcript`.
 

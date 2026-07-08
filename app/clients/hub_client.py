@@ -16,6 +16,7 @@ PASSWORD_FIELD = "#password"     # TODO: confirm real selector
 LOGIN_BUTTON = "#login"          # TODO: confirm real selector
 POST_LOGIN_ELEMENT = ".user-menu"  # TODO: element that appears after a successful login
 
+WORKSPACE_PATH = "/workspace"          # TODO: confirm workspace URL path (query params: ?agent=&project=)
 AGENT_CATALOG_PATH = "/agents"         # TODO: confirm path in the platform
 AGENT_NAME_SELECTOR = "h1.agent-name" # TODO: confirm selector on the agent detail page
 AGENT_SPEC_SELECTOR = ".agent-spec"   # TODO: confirm selector for the spec/doc content
