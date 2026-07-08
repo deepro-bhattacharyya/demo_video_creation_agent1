@@ -1,20 +1,33 @@
-"""Pause for a human to approve or edit the script before rendering."""
+"""Pause for a human to approve or edit the script before rendering.
+
+Set SKIP_REVIEW=true in .env to auto-approve and skip this step entirely
+(useful for batch runs or re-renders where the script is already known-good).
+"""
 
 from langgraph.types import interrupt
 
+from app import config
 from app.agent.state import VideoState
 
 
 def review_script(state: VideoState) -> dict:
-    # TODO (Milestone 4):
-    #   - interrupt() with the scenes + custom_instructions for review
-    #   - on "edit": return updated scenes, stay "pending_review" (loops back)
-    #   - on "approve": return {"script_status": "approved"}
-    #   - support a timeout / skip-review flag for standard runs
+    # Auto-approve path — no human pause needed.
+    if config.SKIP_REVIEW:
+        return {"script_status": "approved"}
+
+    # Surface the current scenes and any client instructions for human review.
     decision = interrupt({
         "scenes": state.get("scenes", []),
         "custom_instructions": state.get("custom_instructions", ""),
     })
+
+    # "edit": caller supplies updated scenes → loop back through generate_script
+    # for re-approval with the revised content.
     if decision.get("action") == "edit":
-        return {"scenes": decision["scenes"], "script_status": "pending_review"}
+        return {
+            "scenes": decision["scenes"],
+            "script_status": "pending_review",
+        }
+
+    # "approve" (or any other value): accept the current scenes as-is.
     return {"script_status": "approved"}

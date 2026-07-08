@@ -54,18 +54,18 @@ agent's spec from the platform without writing a single pixel of video.
 **Goal:** The run is turned into a reviewable, timed scene list before any rendering starts.
 
 ### `generate_script` node
-- [ ] Build a prompt combining `agent_spec` + `run_transcript`
-- [ ] Require structured JSON output: `[{"start", "end", "on_screen", "narration"}, ...]`
-- [ ] Parse safely; rely on LangGraph's `retry_policy(max_attempts=3)` for malformed responses
-- [ ] Sanity-check that scene timings roughly span the recording length
-- [ ] Return `scenes`, `script_status: "pending_review"`
+- [x] Build a prompt combining `agent_spec` + `run_transcript`
+- [x] Require structured JSON output: `[{"start", "end", "on_screen", "narration"}, ...]`
+- [x] Parse safely; rely on LangGraph's `retry_policy(max_attempts=3)` for malformed responses
+- [x] Sanity-check that scene timings roughly span the recording length
+- [x] Return `scenes`, `script_status: "pending_review"`
 
 ### `review_script` node (human-in-the-loop)
-- [ ] `interrupt()` with `scenes` + `custom_instructions` so a person can inspect/edit
-- [ ] Handle `"action": "edit"` — return updated scenes, keep status `"pending_review"` (loops back for re-approval)
-- [ ] Handle `"action": "approve"` — return `script_status: "approved"`
-- [ ] Support a `skip_review` flag (env var or request field) to auto-approve for standard runs
-- [ ] Add a timeout so the graph doesn't hang indefinitely
+- [x] `interrupt()` with `scenes` + `custom_instructions` so a person can inspect/edit
+- [x] Handle `"action": "edit"` — return updated scenes, keep status `"pending_review"` (loops back for re-approval)
+- [x] Handle `"action": "approve"` — return `script_status: "approved"`
+- [x] Support a `skip_review` flag (`SKIP_REVIEW=true` in `.env`) to auto-approve for standard runs
+- [ ] Add a timeout so the graph doesn't hang indefinitely *(deferred to Phase 5 hardening)*
 
 **Done when:** The three-node graph produces an approved scene list that maps correctly onto the recording timeline.
 

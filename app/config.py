@@ -32,3 +32,7 @@ HUB_PASSWORD = _require("HUB_PASSWORD")
 
 # Output location
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "./output")
+
+# Set to true to skip the human review step and auto-approve scripts.
+# Useful for batch/automated runs; leave false for first-time or client-specific videos.
+SKIP_REVIEW = os.environ.get("SKIP_REVIEW", "false").lower() == "true"
