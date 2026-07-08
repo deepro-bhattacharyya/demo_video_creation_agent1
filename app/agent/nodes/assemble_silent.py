@@ -1,10 +1,75 @@
-"""FFmpeg: build a shorter, silent cut with burned-in captions."""
+"""FFmpeg: build a shorter, silent cut with burned-in captions.
 
+Each scene from the approved script is trimmed from the raw recording,
+has its on_screen caption burned in, and all clips are concatenated.
+The final file has no audio track.
+"""
+
+import subprocess
+from pathlib import Path
+
+from app import config
 from app.agent.state import VideoState
 
 
 def assemble_silent(state: VideoState) -> dict:
-    # TODO (Milestone 6): trim per scene timings, burn in narration as captions,
-    # no audio track.
-    raise NotImplementedError
-    # return {"silent_video_path": ..., "status": "silent_assembled"}
+    out_dir = Path(config.OUTPUT_DIR)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    out_path = str(out_dir / f"silent_{state['agent_id']}.mp4")
+
+    filter_complex, out_label = _build_filter_complex(state["scenes"])
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", state["raw_video_path"],
+        "-filter_complex", filter_complex,
+        "-map", f"[{out_label}]",
+        "-an",   # drop audio track
+        out_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg assemble_silent failed:\n{result.stderr}")
+
+    return {
+        "silent_video_path": out_path,
+        "status": "silent_assembled",
+    }
+
+
+def _escape_drawtext(text: str) -> str:
+    """Escape text for use inside an FFmpeg drawtext filter value."""
+    text = text.replace("\\", "\\\\")   # backslash first
+    text = text.replace("'",  "\\'")    # single quote
+    text = text.replace(":",  "\\:")    # colon separates filter options
+    text = text.replace("%",  "\\%")    # percent is a drawtext special char
+    return text
+
+
+def _build_filter_complex(scenes: list[dict]) -> tuple[str, str]:
+    """Return (filter_complex_string, output_label) for the silent cut.
+
+    Each scene is trimmed, timestamps are reset, and its on_screen caption
+    is drawn in white at the bottom-centre.  All clips are then concatenated.
+    """
+    parts = []
+    labels = []
+
+    for i, scene in enumerate(scenes):
+        label = f"v{i}"
+        caption = _escape_drawtext(scene["on_screen"])
+        parts.append(
+            f"[0:v]"
+            f"trim=start={scene['start']}:end={scene['end']},"
+            f"setpts=PTS-STARTPTS,"
+            f"drawtext=text='{caption}'"
+            f":fontsize=36:fontcolor=white:borderw=2:bordercolor=black"
+            f":x=(w-text_w)/2:y=h-th-40"
+            f"[{label}]"
+        )
+        labels.append(f"[{label}]")
+
+    n = len(scenes)
+    concat = "".join(labels) + f"concat=n={n}:v=1:a=0[out]"
+    return ";".join(parts) + ";" + concat, "out"

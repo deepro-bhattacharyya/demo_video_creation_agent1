@@ -17,5 +17,8 @@ python-dotenv>=1.0
 # Logging
 structlog>=24.1
 
+# Testing
+pytest>=8.0
+
 # NOTE: FFmpeg is a system dependency, not a pip package.
 # Install separately — see docs/INSTALL.md for instructions.

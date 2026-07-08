@@ -76,15 +76,15 @@ agent's spec from the platform without writing a single pixel of video.
 **Goal:** Two output videos — one narrated, one silent — are produced from the approved script.
 
 ### Narrated cut
-- [ ] `synthesize_audio`: TTS each scene's `narration` text into one concatenated audio track
+- [x] `synthesize_audio`: TTS each scene's `narration` text into one concatenated audio track
   - Use `tts_client.synthesize()` backed by `config.GEMINI_API_KEY` (Gemini TTS)
   - Return `narration_audio_path`
-- [ ] `assemble_full`: FFmpeg mux `raw_video_path` + `narration_audio_path`
+- [x] `assemble_full`: FFmpeg mux `raw_video_path` + `narration_audio_path`
   - Return `narrated_video_path`
   - Verify with ffprobe: audio track present, resolution 1920×1080
 
 ### Silent cut
-- [ ] `assemble_silent`: produce a condensed cut driven by scene timings
+- [x] `assemble_silent`: produce a condensed cut driven by scene timings
   - Trim to scene boundaries (not fixed rules)
   - Burn in each scene's `on_screen` text as captions
   - Strip audio track
