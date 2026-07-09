@@ -6,16 +6,19 @@ LangGraph retries this node up to 3 times (see graph.py) so any exception
 
 import json
 
+import structlog
 from google import genai
 from google.genai import types
 
 from app import config
 from app.agent.state import VideoState
 
+log = structlog.get_logger()
 _MODEL = "gemini-2.0-flash"
 
 
 def generate_script(state: VideoState) -> dict:
+    log.info("generate_script.start", agent_id=state.get("agent_id"))
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
     prompt = _build_prompt(state["agent_spec"], state["run_transcript"])
@@ -30,6 +33,7 @@ def generate_script(state: VideoState) -> dict:
 
     scenes = _parse_and_validate(response.text)
 
+    log.info("generate_script.done", agent_id=state.get("agent_id"), scene_count=len(scenes))
     return {
         "scenes": scenes,
         "script_status": "pending_review",

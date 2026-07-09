@@ -18,7 +18,7 @@ from app.agent.nodes.assemble_silent import assemble_silent
 from app.agent.nodes.finalize import finalize
 
 
-def build_graph():
+def build_graph(checkpointer=None):
     builder = StateGraph(VideoState)
 
     builder.add_node("select_agent", select_agent)
@@ -46,4 +46,4 @@ def build_graph():
     builder.add_edge("assemble_silent", "finalize")
     builder.add_edge("finalize", END)
 
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)

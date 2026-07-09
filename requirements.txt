@@ -19,6 +19,7 @@ structlog>=24.1
 
 # Testing
 pytest>=8.0
+httpx>=0.27   # required by FastAPI's TestClient
 
 # NOTE: FFmpeg is a system dependency, not a pip package.
 # Install separately — see docs/INSTALL.md for instructions.

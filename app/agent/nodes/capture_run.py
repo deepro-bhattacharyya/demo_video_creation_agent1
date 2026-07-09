@@ -6,14 +6,18 @@ Credentials come from app.config (env vars) — never hardcode them.
 
 from pathlib import Path
 
+import structlog
 from playwright.sync_api import sync_playwright
 
 from app import config
 from app.agent.state import VideoState
 from app.clients import hub_client
 
+log = structlog.get_logger()
+
 
 def capture_run(state: VideoState) -> dict:
+    log.info("capture_run.start", agent_id=state.get("agent_id"))
     raw_dir = Path(config.OUTPUT_DIR) / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
 
@@ -42,8 +46,10 @@ def capture_run(state: VideoState) -> dict:
         context.close()
         browser.close()
 
+    video_path = _latest_video_in(raw_dir)
+    log.info("capture_run.done", agent_id=state.get("agent_id"), video=video_path)
     return {
-        "raw_video_path": _latest_video_in(raw_dir),
+        "raw_video_path": video_path,
         "run_transcript": transcript,
         "status": "captured",
     }
