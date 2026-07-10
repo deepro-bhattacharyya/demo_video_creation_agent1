@@ -26,6 +26,7 @@ def capture_run(state: VideoState) -> dict:
         context = browser.new_context(
             record_video_dir=str(raw_dir),
             record_video_size={"width": 1920, "height": 1080},
+            ignore_https_errors=True,
         )
         page = context.new_page()
 

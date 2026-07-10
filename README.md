@@ -19,6 +19,10 @@
 AgenticQEAHub platform. For each target agent it generates two outputs: a
 narrated walkthrough and a shorter, silent condensed cut.
 
+A React web UI lets users submit a job, review and edit the AI-generated
+narration script, and view the finished output file paths — no command-line
+interaction required for day-to-day use.
+
 This is a standalone service. AgenticQEAHub is treated as an external system —
 DemoVideoBot connects to its UI and APIs over the network and reads its agent
 docs; none of the platform's code lives in this repository.
@@ -44,7 +48,7 @@ is added.
 | Metric | Target |
 |--------|--------|
 | Time to produce both videos | < 15 min, unattended |
-| Manual editing steps | 0 |
+| Manual editing steps | 0 (optional script review only) |
 | Coverage | All agents in the platform catalog |
 | Refresh on agent update | On demand / scheduled |
 
@@ -66,7 +70,7 @@ is added.
 
 **In Scope**
 - Agent discovery, run capture, script generation, TTS narration, video
-  assembly of both a narrated and a silent version.
+  assembly of both a narrated and a silent version, and a web UI for the review step.
 
 **Out of Scope**
 - Editing the platform itself, thumbnails/intro branding, publishing to a
@@ -81,6 +85,7 @@ is added.
 | Google Gemini | Generate the narration script |
 | Google Gemini TTS | Voice-over audio (same API key as script generation) |
 | FFmpeg | Merge video + audio, produce the condensed cut |
+| React + Vite | Web UI for job submission, script review, and results |
 
 > **Note:** script generation currently runs on a personal Gemini API key for
 > prototyping. Before rollout this should move to an org-issued key stored in
@@ -112,7 +117,7 @@ flowchart TD
 
     audio --> full["assemble_full\nMerge capture + voice-over"]
 
-    full --> finalize["finalize\nCollect both output files"]
+    full --> finalize["finalize\nValidate, clean up, collect outputs"]
     silent --> finalize
     finalize --> END([END])
 ```
@@ -154,12 +159,21 @@ class VideoState(TypedDict):
 |-------|----------------|------|
 | `select_agent` | Fetch agent metadata + spec doc from the platform | No |
 | `capture_run` | Log into the platform, open the target project + agent, trigger a run, and record video | No |
-| `generate_script` | Build timed scene list with narration from spec + run | Yes |
+| `generate_script` | Build timed scene list with narration from spec + run | Yes (Gemini) |
 | `review_script` | Pause for human edit of script / client-specific input; resumes on approval | No |
-| `synthesize_audio` | Render narration lines into a voice track | No |
+| `synthesize_audio` | Render narration lines into a voice track | No (Gemini TTS) |
 | `assemble_full` | Merge recording with voice-over into the narrated video | No |
 | `assemble_silent` | Produce a shorter cut with captions instead of voice | No |
-| `finalize` | Validate and collect both output files | No |
+| `finalize` | Validate both outputs with ffprobe, clean up intermediates | No |
+
+### API Design
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/videos` | POST | Start pipeline; returns `thread_id` immediately |
+| `/videos/{thread_id}/status` | GET | Poll for job status (`running` / `awaiting_review` / `done` / `error`) |
+| `/videos/{thread_id}/resume` | POST | Resume after review (`action: approve` or `edit`) |
+| `/health` | GET | Liveness check |
 
 ---
 
@@ -170,12 +184,13 @@ class VideoState(TypedDict):
 | Layer | Technology |
 |-------|-----------|
 | Language | Python 3.11+ |
-| Orchestration | LangGraph 1.0+ |
+| Orchestration | LangGraph 0.2+ |
 | Browser capture | Playwright (video recording enabled) |
-| LLM | Google Gemini (script generation) |
-| TTS | Google Gemini TTS (same API key) |
+| LLM | Google Gemini (`gemini-2.0-flash`) |
+| TTS | Google Gemini TTS (`gemini-2.0-flash-preview-tts`) |
 | Media assembly | FFmpeg |
-| API server | FastAPI |
+| API server | FastAPI (non-blocking — pipeline runs in background threads) |
+| Frontend | React 18 + Vite 5 |
 
 ### Project Structure
 
@@ -183,25 +198,48 @@ class VideoState(TypedDict):
 demo-video-agent/
 ├── app/
 │   ├── agent/
-│   │   ├── graph.py          # StateGraph definition
-│   │   ├── state.py          # VideoState schema
+│   │   ├── graph.py              # StateGraph definition + checkpointer wiring
+│   │   ├── state.py              # VideoState schema
 │   │   └── nodes/
 │   │       ├── select_agent.py
 │   │       ├── capture_run.py
 │   │       ├── generate_script.py
+│   │       ├── review_script.py
 │   │       ├── synthesize_audio.py
 │   │       ├── assemble_full.py
 │   │       ├── assemble_silent.py
 │   │       └── finalize.py
 │   ├── clients/
-│   │   ├── hub_client.py      # AgenticQEAHub catalog / docs / run API
-│   │   └── tts_client.py
-│   └── api/
-│       └── routes.py
-├── output/                    # generated videos land here
+│   │   ├── hub_client.py         # AgenticQEAHub — all UI selectors live here
+│   │   └── tts_client.py         # Gemini TTS wrapper
+│   ├── api/
+│   │   └── routes.py             # FastAPI routes + background thread job store
+│   └── config.py                 # All env vars loaded here; fails loudly if missing
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx               # State machine + polling logic
+│   │   ├── App.css               # Dark theme styles
+│   │   ├── api.js                # fetch wrappers for all three API calls
+│   │   └── components/
+│   │       ├── PipelineForm.jsx  # Agent ID / Project ID / instructions form
+│   │       ├── ProgressView.jsx  # Spinner + step list while pipeline runs
+│   │       ├── SceneReviewer.jsx # Editable scene cards with Approve / Edit actions
+│   │       └── ResultsView.jsx   # Output file paths + Generate Another
+│   ├── vite.config.js            # Proxies /videos + /health to :8000 in dev
+│   └── package.json
+├── docs/
+│   ├── IMPLEMENTATION_PLAN.md
+│   └── INSTALL.md
 ├── tests/
+│   ├── conftest.py
+│   ├── test_generate_script.py
+│   ├── test_synthesize_audio.py
+│   ├── test_assemble.py
+│   ├── test_finalize.py
+│   └── test_routes.py
+├── output/                       # generated videos land here
 ├── .env.example
-├── Dockerfile
+├── Dockerfile                    # multi-stage: Node build + Python runtime
 └── docker-compose.yml
 ```
 
@@ -213,37 +251,29 @@ environment variables — never hardcoded.
 
 ```python
 def capture_run(state: VideoState) -> dict:
+    raw_dir = Path(config.OUTPUT_DIR) / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(headless=True)
         context = browser.new_context(
-            record_video_dir="output/raw",
+            record_video_dir=str(raw_dir),
             record_video_size={"width": 1920, "height": 1080},
         )
         page = context.new_page()
-
-        page.goto(f"{HUB_BASE_URL}/marketplace")
-        page.fill("#email", os.environ["HUB_EMAIL"])
-        page.fill("#password", os.environ["HUB_PASSWORD"])
-        page.click("#login")
-
-        page.goto(f"{HUB_BASE_URL}/workspace"
+        hub_client.login(page)
+        page.goto(f"{config.HUB_BASE_URL}{hub_client.WORKSPACE_PATH}"
                   f"?agent={state['agent_id']}&project={state['project_id']}")
-        transcript = run_agent_and_collect_events(page, state["agent_id"])
-
+        transcript = hub_client.run_agent_and_collect_events(page, state["agent_id"])
         context.close()   # finalizes the video file
         browser.close()
 
     return {
-        "raw_video_path": latest_video_in("output/raw"),
+        "raw_video_path": _latest_video_in(raw_dir),
         "run_transcript": transcript,
         "status": "captured",
     }
 ```
-
-The remaining stages (`generate_script`, `review_script`, `synthesize_audio`,
-`assemble_full`, `assemble_silent`) follow the same pattern described in the
-Stage Summary above — each takes the previous stage's output and hands off
-a plain dict to the next one.
 
 ---
 
@@ -253,19 +283,29 @@ a plain dict to the next one.
 
 | Level | Tool | Focus |
 |-------|------|-------|
-| Unit | pytest + mock | Each node in isolation (mock hub + TTS) |
+| Unit | pytest + mock | Each node in isolation (mock hub, TTS, ffprobe) |
 | Integration | pytest (live) | Full graph against one real agent |
-| Output check | FFprobe assertions | Resolution, duration, audio track present |
+| Output check | ffprobe assertions | Resolution, duration, audio track present/absent |
+
+### Test Coverage (41 tests — all passing)
+
+| File | Tests | What's covered |
+|------|-------|----------------|
+| `test_generate_script.py` | 12 | JSON parsing, field validation, ordering, overlap detection |
+| `test_synthesize_audio.py` | 4 | WAV concatenation correctness and format preservation |
+| `test_assemble.py` | 11 | Caption escaping, FFmpeg filter-complex string construction |
+| `test_finalize.py` | 9 | ffprobe mock validation (narrated + silent stream checks) |
+| `test_routes.py` | 6 | Health, job creation, status polling, resume 404/400 cases |
+| `test_placeholder.py` | 1 | Graph builds without error |
 
 ### Sample Test Scenarios
 
 | Scenario | Expected Result |
 |----------|-----------------|
 | Known agent, successful run | Two files produced; narrated has audio, silent is muted |
-| Client requests custom wording before rendering | Script paused for edit; final video reflects the edited lines |
+| Client requests custom wording before rendering | Script paused for edit in UI; final video reflects the edited lines |
 | Agent with a HITL prompt in the run | Prompt appears in capture and is described in narration |
-| TTS service unavailable | Silent cut still produced; job flagged for audio retry |
-| Capture times out | Retried once, then errors cleanly with a log |
+| Capture times out | Retried once (RetryPolicy), then errors cleanly with a structlog entry |
 | New agent added to catalog | Picked up and processed without code changes |
 
 ### Evaluation Metrics
@@ -286,9 +326,10 @@ a plain dict to the next one.
 
 | Option | How |
 |--------|-----|
-| Local | `uvicorn app.api.routes:app --reload` |
-| Docker | `docker build + docker run --env-file .env` |
-| Docker Compose | `docker compose up -d` (agent + Playwright browsers) |
+| Local (dev) | Two terminals: `uvicorn` + `npm run dev` — see `docs/INSTALL.md` |
+| Production (single process) | `npm run build` in `frontend/`, then `uvicorn` — FastAPI serves the React build |
+| Docker | `docker build -t demo-video-bot . && docker run --env-file .env -p 8000:8000 demo-video-bot` |
+| Docker Compose | `docker compose up -d` |
 
 ### Key Environment Variables
 
@@ -298,6 +339,7 @@ AGENTICQEAHUB_BASE_URL=https://<platform-host>
 HUB_EMAIL=...                 # service/shared login, not a personal account
 HUB_PASSWORD=...              # stored in a secrets manager, never in code
 OUTPUT_DIR=./output
+SKIP_REVIEW=false             # set true to auto-approve scripts (batch runs)
 ```
 
 > Login credentials and API keys are only ever read from the environment /
@@ -308,8 +350,8 @@ OUTPUT_DIR=./output
 
 | Tool | Purpose |
 |------|---------|
+| structlog | Structured JSON logs per stage (capture_run, generate_script, finalize) |
 | LangSmith | LLM traces for script generation |
-| structlog | Structured JSON logs per stage |
 | Sentry | Unhandled exceptions (capture / assembly failures) |
 
 ---
@@ -318,14 +360,15 @@ OUTPUT_DIR=./output
 
 | Risk | Mitigation |
 |------|-----------|
-| Platform UI changes break capture | Centralize selectors; version-pin against UI releases |
-| Run is slow or hangs during capture | Per-stage timeout + one retry, then fail cleanly |
-| TTS narration sounds unnatural | Configurable voice; review pass before first rollout |
+| Platform UI changes break capture | Centralize selectors in `hub_client.py`; version-pin against UI releases |
+| Run is slow or hangs during capture | Playwright 5-min timeout + `RetryPolicy(max_attempts=2)` in graph |
+| TTS narration sounds unnatural | Configurable voice in `tts_client.py`; review pass before first rollout |
 | Condensed cut trims the wrong parts | Drive trimming from scene timing in the script, not fixed rules |
 | Access to the live platform unavailable | Support the platform's mock-run mode for repeatable capture |
-| Large raw recordings fill disk | Compress and clean up raw captures after assembly |
-| Review step delays turnaround | Auto-approve after a timeout, or offer a "skip review" flag for standard runs |
-| Using a personal API key / personal login for now | Fine for prototyping; move to an org-managed Gemini key and a shared service login before wider rollout |
+| Large raw recordings fill disk | `finalize._cleanup` removes raw + audio intermediates after assembly |
+| Review step delays turnaround | `SKIP_REVIEW=true` auto-approves; UI review takes < 5 min |
+| Using a personal API key for now | Fine for prototyping; move to an org-managed Gemini key before wider rollout (one-line change in `config.py`) |
+| In-memory job store lost on restart | Acceptable for prototype; swap `MemorySaver` for `SqliteSaver` before multi-worker deploy |
 
 ---
 
@@ -335,4 +378,5 @@ OUTPUT_DIR=./output
 - [LangGraph StateGraph API](https://langchain-ai.github.io/langgraph/reference/graphs/)
 - [Playwright — Videos](https://playwright.dev/python/docs/videos)
 - [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
-- [LangSmith Tracing](https://docs.smith.langchain.com/)
+- [Google Gemini API](https://ai.google.dev/gemini-api/docs)
+- [Vite Documentation](https://vitejs.dev/)

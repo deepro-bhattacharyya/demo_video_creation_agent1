@@ -5,7 +5,7 @@ Don't jump ahead — later phases depend on state and code produced by earlier o
 
 ---
 
-## Phase 1 — Foundation & Platform Connection
+## Phase 1 — Foundation & Platform Connection ✅
 
 **Goal:** Environment is wired up, the app starts cleanly, and we can read an
 agent's spec from the platform without writing a single pixel of video.
@@ -30,7 +30,7 @@ agent's spec from the platform without writing a single pixel of video.
 
 ---
 
-## Phase 2 — Run Capture
+## Phase 2 — Run Capture ✅
 
 **Goal:** A real browser session runs the target agent and saves a 1920×1080 video to disk.
 
@@ -49,7 +49,7 @@ agent's spec from the platform without writing a single pixel of video.
 
 ---
 
-## Phase 3 — Script Generation & Human Review
+## Phase 3 — Script Generation & Human Review ✅
 
 **Goal:** The run is turned into a reviewable, timed scene list before any rendering starts.
 
@@ -65,13 +65,13 @@ agent's spec from the platform without writing a single pixel of video.
 - [x] Handle `"action": "edit"` — return updated scenes, keep status `"pending_review"` (loops back for re-approval)
 - [x] Handle `"action": "approve"` — return `script_status: "approved"`
 - [x] Support a `skip_review` flag (`SKIP_REVIEW=true` in `.env`) to auto-approve for standard runs
-- [ ] Add a timeout so the graph doesn't hang indefinitely *(deferred to Phase 5 hardening)*
+- [ ] Add a timeout so the graph doesn't hang indefinitely *(deferred — handled by `SKIP_REVIEW` flag for now)*
 
 **Done when:** The three-node graph produces an approved scene list that maps correctly onto the recording timeline.
 
 ---
 
-## Phase 4 — Video Assembly
+## Phase 4 — Video Assembly ✅
 
 **Goal:** Two output videos — one narrated, one silent — are produced from the approved script.
 
@@ -95,28 +95,45 @@ agent's spec from the platform without writing a single pixel of video.
 
 ---
 
-## Phase 5 — Integration, Hardening & Deployment
+## Phase 5 — Integration, Hardening & Deployment ✅
 
 **Goal:** The full pipeline is wired end-to-end, hardened against real failures, and reachable via API.
 
 ### Wire it together
-- [x] `graph.py`: all nodes connected; `build_graph(checkpointer=)` accepts a MemorySaver for interrupt/resume
+- [x] `graph.py`: all nodes connected; `build_graph(checkpointer=)` accepts a `MemorySaver` for interrupt/resume
 - [x] `finalize` node: ffprobe validates both outputs (audio present/absent), cleans up raw + audio intermediates
-- [x] `routes.py`: `POST /videos` starts the pipeline; `POST /videos/{thread_id}/resume` handles approve/edit; `GET /health` smoke check
-- [ ] End-to-end run against `defect-triaging-crewai`; compare outputs against reference videos *(requires live platform access)*
+- [x] `routes.py`: `POST /videos` kicks off pipeline in a background thread and returns `thread_id` immediately; `GET /videos/{id}/status` for polling; `POST /videos/{id}/resume` for approve/edit
+- [ ] End-to-end run against `defect-triaging-crewai`; compare outputs against reference videos *(requires live platform access — UI selectors in `hub_client.py` still marked TODO)*
 
 ### Hardening
 - [x] Per-stage timeouts + one retry on `capture_run` (Playwright 5-min timeout + `RetryPolicy(max_attempts=2)` in graph)
 - [x] Clean up `output/raw/` captures and `output/audio/` intermediates after assembly (`finalize._cleanup`)
 - [x] Structured logging (structlog) on `capture_run`, `generate_script`, `finalize` — entry/exit + key state fields
-- [x] Unit tests: 37 passing across all phases (finalize, assemble, generate_script, synthesize_audio, routes, graph)
+- [x] Unit tests: **41 passing** across all phases (generate_script, synthesize_audio, assemble, finalize, routes, graph)
 
-### Deployment check
+### Deployment
 - [x] `uvicorn app.api.routes:app --reload` starts cleanly with a valid `.env`
 - [x] `GET /health` returns `{"status": "ok"}` (verified in test suite)
-- [x] `Dockerfile` and `docker-compose.yml` created
+- [x] Multi-stage `Dockerfile` (Node build + Python runtime) and `docker-compose.yml` created
+- [x] FastAPI serves the React build from `/` in production (no separate web server needed)
 
 **Done when:** `POST /videos` against `defect-triaging-crewai` produces two files in `output/` in under 15 minutes, end-to-end, unattended.
+
+---
+
+## Frontend — React Web UI ✅
+
+**Goal:** Users can submit jobs, track progress, review scripts, and see output
+paths without touching the command line.
+
+- [x] `PipelineForm` — Agent ID, Project ID, optional custom instructions
+- [x] `ProgressView` — spinner + step hints; polls `/status` every 5 seconds
+- [x] `SceneReviewer` — editable scene cards (on_screen + narration); sticky Approve / Submit Edits bar
+- [x] `ResultsView` — output file paths, Generate Another button
+- [x] Error view for pipeline failures with Try Again
+- [x] Vite proxy routes `/videos` and `/health` to `:8000` in dev (no CORS config needed)
+- [x] FastAPI CORS middleware allows `localhost:5173` in development
+- [x] `npm run build` produces a production bundle served by FastAPI's `StaticFiles`
 
 ---
 
@@ -124,5 +141,6 @@ agent's spec from the platform without writing a single pixel of video.
 
 - First test target: `defect-triaging-crewai` (reference videos already exist for comparison).
 - Out of scope for v1: multi-language narration, thumbnails/intro branding, publishing to a hosting site.
-- Personal Gemini key is fine for prototyping; move to an org key before wider rollout (change is one line in `config.py`).
+- Personal Gemini key is fine for prototyping; move to an org key before wider rollout (one-line change in `config.py`).
 - Gemini TTS is used for voice-over — no separate TTS provider or API key needed.
+- `MemorySaver` stores job state in memory; swap for `SqliteSaver` before multi-worker production deploy.

@@ -1,8 +1,13 @@
 """FastAPI entrypoint: request a demo video for a given agent."""
 
+import os
+import pathlib
+import threading
 import uuid
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
@@ -11,11 +16,26 @@ from app.agent.graph import build_graph
 
 app = FastAPI(title="DemoVideoBot")
 
-# MemorySaver keeps graph state in memory so interrupted runs can be resumed.
-# Swap for a persistent checkpointer (e.g. SqliteSaver) before multi-worker deploy.
+# Allow the React dev server to call the API in development.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 _checkpointer = MemorySaver()
 graph = build_graph(checkpointer=_checkpointer)
 
+# In-memory job store: {thread_id: {status, ...payload}}
+# Each thread_id has its own key so concurrent access doesn't collide.
+_jobs: dict = {}
+_jobs_lock = threading.Lock()
+
+
+# ---------------------------------------------------------------------------
+# Request / response models
+# ---------------------------------------------------------------------------
 
 class VideoRequest(BaseModel):
     agent_id: str
@@ -24,8 +44,58 @@ class VideoRequest(BaseModel):
 
 
 class ReviewDecision(BaseModel):
-    action: str           # "approve" or "edit"
-    scenes: list[dict] = []   # required when action == "edit"
+    action: str            # "approve" or "edit"
+    scenes: list[dict] = []
+
+
+# ---------------------------------------------------------------------------
+# Background workers
+# ---------------------------------------------------------------------------
+
+def _run_graph(thread_id: str, input_state: dict) -> None:
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        result = graph.invoke(input_state, config=config)
+        snapshot = graph.get_state(config)
+        with _jobs_lock:
+            if snapshot.next:
+                _jobs[thread_id] = {
+                    "status": "awaiting_review",
+                    "scenes": result.get("scenes", []),
+                    "custom_instructions": result.get("custom_instructions", ""),
+                }
+            else:
+                _jobs[thread_id] = {
+                    "status": "done",
+                    "narrated_video_path": result.get("narrated_video_path"),
+                    "silent_video_path": result.get("silent_video_path"),
+                }
+    except Exception as exc:
+        with _jobs_lock:
+            _jobs[thread_id] = {"status": "error", "error": str(exc)}
+
+
+def _resume_graph(thread_id: str, resume_value: dict) -> None:
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        result = graph.invoke(Command(resume=resume_value), config=config)
+        snapshot = graph.get_state(config)
+        with _jobs_lock:
+            if snapshot.next:
+                _jobs[thread_id] = {
+                    "status": "awaiting_review",
+                    "scenes": result.get("scenes", []),
+                    "custom_instructions": result.get("custom_instructions", ""),
+                }
+            else:
+                _jobs[thread_id] = {
+                    "status": "done",
+                    "narrated_video_path": result.get("narrated_video_path"),
+                    "silent_video_path": result.get("silent_video_path"),
+                }
+    except Exception as exc:
+        with _jobs_lock:
+            _jobs[thread_id] = {"status": "error", "error": str(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -34,75 +104,76 @@ class ReviewDecision(BaseModel):
 
 @app.post("/videos")
 def create_video(req: VideoRequest):
-    """Start the pipeline for a given agent. Returns immediately with a
-    thread_id if the graph pauses at the human review step."""
+    """Kick off the pipeline in a background thread and return a thread_id
+    immediately. Poll GET /videos/{thread_id}/status to track progress."""
     thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    with _jobs_lock:
+        _jobs[thread_id] = {"status": "running"}
 
-    result = graph.invoke(
-        {
+    threading.Thread(
+        target=_run_graph,
+        args=(thread_id, {
             "agent_id": req.agent_id,
             "project_id": req.project_id,
             "custom_instructions": req.custom_instructions,
-        },
-        config=config,
-    )
+        }),
+        daemon=True,
+    ).start()
 
-    # If the graph is still running (paused at review_script interrupt),
-    # state.next will be non-empty.
-    snapshot = graph.get_state(config)
-    if snapshot.next:
-        return {
-            "thread_id": thread_id,
-            "status": "awaiting_review",
-            "scenes": result.get("scenes", []),
-            "custom_instructions": result.get("custom_instructions", ""),
-        }
+    return {"thread_id": thread_id, "status": "running"}
 
-    return {
-        "thread_id": thread_id,
-        "narrated_video_path": result.get("narrated_video_path"),
-        "silent_video_path": result.get("silent_video_path"),
-        "status": result.get("status"),
-    }
+
+@app.get("/videos/{thread_id}/status")
+def get_status(thread_id: str):
+    """Return the current status of a pipeline job."""
+    with _jobs_lock:
+        job = _jobs.get(thread_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return {"thread_id": thread_id, **job}
 
 
 @app.post("/videos/{thread_id}/resume")
 def resume_video(thread_id: str, decision: ReviewDecision):
-    """Resume a pipeline that is paused at the review step.
+    """Resume a pipeline that is paused at the script-review step."""
+    with _jobs_lock:
+        job = _jobs.get(thread_id)
 
-    Send action="approve" to accept the current scenes, or action="edit"
-    with an updated scenes list to revise and re-review.
-    """
-    config = {"configurable": {"thread_id": thread_id}}
-
-    snapshot = graph.get_state(config)
-    if not snapshot.next:
-        raise HTTPException(status_code=404, detail="Thread not found or already completed.")
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job["status"] != "awaiting_review":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Job is not awaiting review (current status: {job['status']}).",
+        )
 
     resume_value: dict = {"action": decision.action}
     if decision.action == "edit":
         resume_value["scenes"] = decision.scenes
 
-    result = graph.invoke(Command(resume=resume_value), config=config)
+    with _jobs_lock:
+        _jobs[thread_id] = {"status": "running"}
 
-    # May be paused again if the user edited and the script loops back.
-    snapshot = graph.get_state(config)
-    if snapshot.next:
-        return {
-            "thread_id": thread_id,
-            "status": "awaiting_review",
-            "scenes": result.get("scenes", []),
-        }
+    threading.Thread(
+        target=_resume_graph,
+        args=(thread_id, resume_value),
+        daemon=True,
+    ).start()
 
-    return {
-        "thread_id": thread_id,
-        "narrated_video_path": result.get("narrated_video_path"),
-        "silent_video_path": result.get("silent_video_path"),
-        "status": result.get("status"),
-    }
+    return {"thread_id": thread_id, "status": "running"}
 
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Serve the React build in production (mounted after all API routes)
+# ---------------------------------------------------------------------------
+_frontend_dist = (
+    pathlib.Path(__file__).parent / ".." / ".." / "frontend" / "dist"
+).resolve()
+
+if _frontend_dist.is_dir():
+    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")

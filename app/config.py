@@ -26,7 +26,7 @@ def _require(name: str) -> str:
 GEMINI_API_KEY = _require("GEMINI_API_KEY")
 
 # AgenticQEAHub platform
-HUB_BASE_URL = _require("AGENTICQEAHUB_BASE_URL")
+HUB_BASE_URL = _require("AGENTICQEAHUB_BASE_URL").rstrip("/")
 HUB_EMAIL = _require("HUB_EMAIL")
 HUB_PASSWORD = _require("HUB_PASSWORD")
 

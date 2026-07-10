@@ -7,6 +7,7 @@ Make sure the following are installed on your machine before proceeding.
 | Requirement | Minimum version | Install |
 |-------------|----------------|---------|
 | Python | 3.11+ | [python.org](https://www.python.org/downloads/) |
+| Node.js | 18+ | [nodejs.org](https://nodejs.org/) |
 | FFmpeg | any recent | See below |
 | Git | any | [git-scm.com](https://git-scm.com/) |
 
@@ -18,7 +19,7 @@ FFmpeg is a system dependency — it is **not** a pip package.
 
 1. Go to **[https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/builds/)** (the official Windows builds linked from ffmpeg.org).
 2. Under **"release builds"**, download `ffmpeg-release-essentials.zip`.
-3. Extract the zip — you'll get a folder like `ffmpeg-7.x-essentials_build\`.
+3. Extract the zip — you'll get a folder like `ffmpeg-8.x-essentials_build\`.
 4. Move (or copy) that folder somewhere permanent, e.g. `C:\tools\ffmpeg\`.
 5. Add the `bin` subfolder to your user `PATH`:
    - Open **Start → "Edit environment variables for your account"**
@@ -74,10 +75,12 @@ pip install -r requirements.txt
 ## 3. Install Playwright browsers
 
 ```bash
-playwright install chromium
+python -m playwright install chromium
 ```
 
 This downloads the Chromium browser binary used for login and screen recording.
+
+> **Windows note:** use `python -m playwright install chromium` rather than `playwright install chromium` — the `playwright` CLI may not be on the PATH depending on how Python was installed.
 
 ---
 
@@ -100,6 +103,9 @@ HUB_PASSWORD=your-login-password
 
 # Where finished videos are written (default is fine locally)
 OUTPUT_DIR=./output
+
+# Set to true to skip the human review step (useful for re-renders)
+SKIP_REVIEW=false
 ```
 
 > **Never commit `.env`.** It is already listed in `.gitignore`.
@@ -107,39 +113,51 @@ OUTPUT_DIR=./output
 
 ---
 
-## 5. Run the server
+## 5. Install frontend dependencies
 
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+---
+
+## 6. Run the app (development)
+
+Open **two terminals** in the project root:
+
+**Terminal 1 — backend**
 ```bash
 uvicorn app.api.routes:app --reload
 ```
-
-The API will be available at `http://127.0.0.1:8000`.
-
-Check it's alive:
+API available at `http://127.0.0.1:8000`. Verify:
 ```bash
 curl http://127.0.0.1:8000/health
 # {"status":"ok"}
 ```
 
----
-
-## 6. Request a demo video
-
+**Terminal 2 — frontend**
 ```bash
-curl -X POST http://127.0.0.1:8000/videos \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agent_id": "defect-triaging-crewai",
-    "project_id": "your-project-id",
-    "custom_instructions": ""
-  }'
+cd frontend
+npm run dev
 ```
+React app available at `http://localhost:5173`. Open this URL in your browser.
 
-The pipeline will pause at the **review_script** step for human approval. Once approved, both output files are written to `output/`.
+The Vite dev server proxies all `/videos` and `/health` requests to the backend automatically — no CORS issues.
 
 ---
 
-## 7. Output files
+## 7. Using the UI
+
+1. Enter the **Agent ID** and **Project ID** in the form and click **Start Pipeline**.
+2. The pipeline runs in the background (~5–10 min). The page polls for status every 5 seconds automatically.
+3. When the narration script is ready, the **Scene Reviewer** appears — edit any on-screen caption or narration line, then click **Approve & Render** or **Submit Edits**.
+4. After rendering, the **Results** view shows both output file paths.
+
+---
+
+## 8. Output files
 
 | File | Description |
 |------|-------------|
@@ -148,7 +166,10 @@ The pipeline will pause at the **review_script** step for human approval. Once a
 
 ---
 
-## Running with Docker (optional)
+## 9. Running with Docker (optional)
+
+The Dockerfile uses a multi-stage build — it builds the React frontend first,
+then packages everything into a single Python image. No Node.js needed on the host.
 
 ```bash
 docker build -t demo-video-bot .
@@ -159,6 +180,8 @@ Or with Docker Compose:
 ```bash
 docker compose up -d
 ```
+
+The app (backend + frontend) is served at `http://localhost:8000`.
 
 ---
 
@@ -171,3 +194,5 @@ docker compose up -d
 | `ffmpeg: command not found` | Add the `bin` folder of your FFmpeg extract to your user `PATH` (see Windows install steps above), then restart your terminal |
 | Login fails during capture | Verify `HUB_EMAIL`, `HUB_PASSWORD`, and `AGENTICQEAHUB_BASE_URL` in `.env` |
 | `google-genai` import error | Run `pip install -r requirements.txt` inside the active virtualenv |
+| Frontend shows blank page | Make sure `npm run dev` is running and the backend is up on `:8000` |
+| `npm install` fails | Verify Node.js 18+ is installed: `node --version` |

@@ -52,7 +52,8 @@ def get_agent_spec(agent_id: str) -> dict:
     """
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+        context = browser.new_context(ignore_https_errors=True)
+        page = context.new_page()
 
         login(page)
 
@@ -64,6 +65,7 @@ def get_agent_spec(agent_id: str) -> dict:
         agent_name = page.inner_text(AGENT_NAME_SELECTOR).strip()
         agent_spec = page.inner_text(AGENT_SPEC_SELECTOR).strip()
 
+        context.close()
         browser.close()
 
     return {"name": agent_name, "spec": agent_spec}
