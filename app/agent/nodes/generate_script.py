@@ -1,10 +1,14 @@
 """Ask Gemini to turn the agent spec + run transcript into a timed scene list.
 
+Gemini is called once per pipeline run (TTS is handled by edge-tts, not Gemini).
+Free tier (1,500 req/day) is sufficient for normal use at that rate.
+
 LangGraph retries this node up to 3 times (see graph.py) so any exception
 — bad JSON, empty response, failed validation — triggers an automatic retry.
 """
 
 import json
+import time
 
 import structlog
 from google import genai
@@ -14,26 +18,22 @@ from app import config
 from app.agent.state import VideoState
 
 log = structlog.get_logger()
-_MODEL = "gemini-2.0-flash"
+_MODEL       = "gemini-2.0-flash"
+_MAX_RETRIES = 4          # total attempts = 1 + 4 retries
+_RETRY_BASE  = 35         # seconds — matches Gemini's suggested retryDelay
 
 
 def generate_script(state: VideoState) -> dict:
-    log.info("generate_script.start", agent_id=state.get("agent_id"))
+    log.info("generate_script.start", agent=state.get("agent_name"))
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
     prompt = _build_prompt(state["agent_spec"], state["run_transcript"])
 
-    response = client.models.generate_content(
-        model=_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-        ),
-    )
+    response = _call_with_retry(client, prompt)
 
     scenes = _parse_and_validate(response.text)
 
-    log.info("generate_script.done", agent_id=state.get("agent_id"), scene_count=len(scenes))
+    log.info("generate_script.done", agent=state.get("agent_name"), scene_count=len(scenes))
     return {
         "scenes": scenes,
         "script_status": "pending_review",
@@ -44,6 +44,43 @@ def generate_script(state: VideoState) -> dict:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _call_with_retry(client, prompt: str):
+    """Call Gemini with exponential back-off on rate-limit (429) errors.
+
+    With TTS moved to edge-tts, Gemini is only called once per pipeline run.
+    The free tier (1,500 req/day) is unlikely to be exhausted at that rate.
+    Retries still handle transient RPM spikes gracefully.
+    """
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            return client.models.generate_content(
+                model=_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                ),
+            )
+        except Exception as exc:
+            err = str(exc)
+            is_rate_limit = (
+                "429" in err
+                or "RESOURCE_EXHAUSTED" in err
+                or "quota" in err.lower()
+                or "rate" in err.lower()
+            )
+            if is_rate_limit and attempt < _MAX_RETRIES:
+                wait = _RETRY_BASE * (2 ** attempt)   # 35s, 70s, 140s, 280s
+                log.warning(
+                    "generate_script.rate_limit",
+                    attempt=attempt + 1,
+                    wait_seconds=wait,
+                    error=err[:120],
+                )
+                time.sleep(wait)
+                continue
+            raise
+
 
 def _build_prompt(agent_spec: str, run_transcript: list[dict]) -> str:
     transcript_text = "\n".join(
@@ -82,7 +119,6 @@ Return ONLY the JSON array — no markdown fences, no extra text.
 
 def _parse_and_validate(raw: str) -> list[dict]:
     """Parse JSON and check structural integrity. Raises on any problem."""
-    # Strip accidental markdown fences Gemini sometimes adds despite the instruction.
     text = raw.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1]
@@ -103,15 +139,11 @@ def _parse_and_validate(raw: str) -> list[dict]:
                 f"Scene {i} has end ({scene['end']}) <= start ({scene['start']})."
             )
 
-    # Scenes must be in order with no gaps.
     for i in range(1, len(scenes)):
         if scenes[i]["start"] < scenes[i - 1]["end"]:
-            raise ValueError(
-                f"Scene {i} overlaps with scene {i - 1}."
-            )
+            raise ValueError(f"Scene {i} overlaps with scene {i - 1}.")
 
     if scenes[0]["start"] != 0:
-        # Nudge rather than reject — Gemini sometimes starts at 0.5 etc.
         scenes[0]["start"] = 0
 
     return scenes

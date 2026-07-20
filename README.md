@@ -127,11 +127,11 @@ flowchart TD
 ```python
 class VideoState(TypedDict):
     # Input
-    agent_id: str            # e.g. "defect-triaging-crewai"
-    project_id: str
+    agent_name: str          # display name, e.g. "Defect Triage (CrewAI)"
+    project_name: str        # display name, e.g. "Dev test project"
 
     # From platform
-    agent_name: str
+    agent_display_name: str  # canonical name as shown in the platform
     agent_spec: str          # markdown doc for the agent
     run_id: str
     run_transcript: list[dict]   # structured step/HITL events from the run
@@ -196,6 +196,9 @@ class VideoState(TypedDict):
 
 ```
 demo-video-agent/
+├── agents/                       # per-agent HITL prompt configs (one file per agent)
+│   ├── __init__.py               # registry: maps display names → config modules
+│   └── defect_triage_crewai.py  # HITL prompts + responses for Defect Triage (CrewAI)
 ├── app/
 │   ├── agent/
 │   │   ├── graph.py              # StateGraph definition + checkpointer wiring
@@ -221,7 +224,7 @@ demo-video-agent/
 │   │   ├── App.css               # Dark theme styles
 │   │   ├── api.js                # fetch wrappers for all three API calls
 │   │   └── components/
-│   │       ├── PipelineForm.jsx  # Agent ID / Project ID / instructions form
+│   │       ├── PipelineForm.jsx  # Project Name / Agent Name / instructions form
 │   │       ├── ProgressView.jsx  # Spinner + step list while pipeline runs
 │   │       ├── SceneReviewer.jsx # Editable scene cards with Approve / Edit actions
 │   │       └── ResultsView.jsx   # Output file paths + Generate Another
@@ -245,12 +248,19 @@ demo-video-agent/
 
 ### Sample Node — `capture_run`
 
-This is the step that mirrors what you do manually today: log in, open the
-project and agent, run it, and record the screen. Credentials are read from
-environment variables — never hardcoded.
+This is the step that mirrors what you do manually today: log in, navigate to
+the project and agent by their display names, run it, handle any HITL prompts
+automatically, and record the screen. Credentials are read from environment
+variables — never hardcoded. HITL responses are loaded from `agents/`.
 
 ```python
 def capture_run(state: VideoState) -> dict:
+    agent_name   = state["agent_name"]
+    project_name = state["project_name"]
+
+    agent_cfg      = get_agent_config(agent_name)
+    hitl_responses = getattr(agent_cfg, "HITL_RESPONSES", []) if agent_cfg else []
+
     raw_dir = Path(config.OUTPUT_DIR) / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
 
@@ -262,9 +272,12 @@ def capture_run(state: VideoState) -> dict:
         )
         page = context.new_page()
         hub_client.login(page)
-        page.goto(f"{config.HUB_BASE_URL}{hub_client.WORKSPACE_PATH}"
-                  f"?agent={state['agent_id']}&project={state['project_id']}")
-        transcript = hub_client.run_agent_and_collect_events(page, state["agent_id"])
+        transcript = hub_client.run_agent_and_collect_events(
+            page,
+            project_name=project_name,
+            agent_name=agent_name,
+            hitl_responses=hitl_responses,
+        )
         context.close()   # finalizes the video file
         browser.close()
 

@@ -1,50 +1,108 @@
 import { useState } from 'react'
 
 export default function PipelineForm({ onSubmit }) {
-  const [agentId, setAgentId] = useState('')
-  const [projectId, setProjectId] = useState('')
+  const [sourceType, setSourceType]             = useState('hub')
+  const [agentName, setAgentName]               = useState('')
+  const [projectName, setProjectName]           = useState('')
+  const [agentFolder, setAgentFolder]           = useState('')
   const [customInstructions, setCustomInstructions] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading]                   = useState(false)
+
+  const isHub        = sourceType === 'hub'
+  const hubValid     = agentName.trim() && projectName.trim()
+  const standaloneValid = agentFolder.trim()
+  const canSubmit    = isHub ? hubValid : standaloneValid
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!agentId.trim() || !projectId.trim()) return
+    if (!canSubmit) return
     setLoading(true)
     await onSubmit({
-      agentId: agentId.trim(),
-      projectId: projectId.trim(),
+      sourceType,
+      agentName:   agentName.trim(),
+      projectName: projectName.trim(),
+      agentFolder: agentFolder.trim(),
       customInstructions,
     })
-    // parent will change view; no need to reset loading
   }
 
   return (
     <form className="card" onSubmit={handleSubmit}>
       <h2>Generate Demo Video</h2>
 
+      {/* Source type toggle */}
       <div className="form-group">
-        <label>Agent ID</label>
-        <input
-          type="text"
-          placeholder="e.g. defect-triaging-crewai"
-          value={agentId}
-          onChange={e => setAgentId(e.target.value)}
-          required
-          autoFocus
-        />
+        <label>Source</label>
+        <div className="source-toggle">
+          <label className={`toggle-option ${isHub ? 'active' : ''}`}>
+            <input
+              type="radio"
+              name="sourceType"
+              value="hub"
+              checked={isHub}
+              onChange={() => setSourceType('hub')}
+            />
+            Platform (Hub)
+          </label>
+          <label className={`toggle-option ${!isHub ? 'active' : ''}`}>
+            <input
+              type="radio"
+              name="sourceType"
+              value="standalone"
+              checked={!isHub}
+              onChange={() => setSourceType('standalone')}
+            />
+            Standalone Folder
+          </label>
+        </div>
       </div>
 
-      <div className="form-group">
-        <label>Project ID</label>
-        <input
-          type="text"
-          placeholder="Your project ID on the platform"
-          value={projectId}
-          onChange={e => setProjectId(e.target.value)}
-          required
-        />
-      </div>
+      {/* Hub fields */}
+      {isHub && (
+        <>
+          <div className="form-group">
+            <label>Project Name</label>
+            <input
+              type="text"
+              placeholder="e.g. Dev test project"
+              value={projectName}
+              onChange={e => setProjectName(e.target.value)}
+              required={isHub}
+              autoFocus
+            />
+          </div>
+          <div className="form-group">
+            <label>Agent Name</label>
+            <input
+              type="text"
+              placeholder="e.g. Defect Triage (CrewAI)"
+              value={agentName}
+              onChange={e => setAgentName(e.target.value)}
+              required={isHub}
+            />
+          </div>
+        </>
+      )}
 
+      {/* Standalone field */}
+      {!isHub && (
+        <div className="form-group">
+          <label>Agent Folder Path</label>
+          <input
+            type="text"
+            placeholder="e.g. C:\Projects\my-agent"
+            value={agentFolder}
+            onChange={e => setAgentFolder(e.target.value)}
+            required={!isHub}
+            autoFocus
+          />
+          <span className="label-hint">
+            Folder must contain a <code>demo_config.yaml</code> file.
+          </span>
+        </div>
+      )}
+
+      {/* Custom instructions (both modes) */}
       <div className="form-group">
         <label>
           Custom Instructions&nbsp;
@@ -58,7 +116,7 @@ export default function PipelineForm({ onSubmit }) {
         />
       </div>
 
-      <button type="submit" className="btn-primary" disabled={loading}>
+      <button type="submit" className="btn-primary" disabled={loading || !canSubmit}>
         {loading ? 'Starting…' : 'Start Pipeline'}
       </button>
     </form>

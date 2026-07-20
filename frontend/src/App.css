@@ -217,6 +217,55 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 0
 }
 .output-filename { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
 
+/* ── Source toggle ── */
+.source-toggle {
+  display: flex;
+  gap: 8px;
+}
+.toggle-option {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.toggle-option input[type="radio"] { display: none; }
+.toggle-option.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+}
+.toggle-option:hover:not(.active) {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+.form-group .label-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.form-group .label-hint code {
+  font-family: 'Courier New', Consolas, monospace;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 0.75rem;
+}
+
 /* ── Error ── */
 .error-card {
   border-color: var(--error) !important;

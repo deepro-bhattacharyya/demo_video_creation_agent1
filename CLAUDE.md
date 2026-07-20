@@ -57,10 +57,10 @@ code is NOT part of this repo — do not try to import or vendor it.
 
 - All 5 pipeline phases are implemented and 41 unit tests pass.
 - The UI is built and the React build is served by FastAPI in production.
-- UI selectors in `hub_client.py` are marked `# TODO: confirm` — they must be
-  verified against the real AgenticQEAHub platform before a live end-to-end run.
-- Using a **personal Gemini API key** for now (prototype). Keep the key access
-  in one place (`app/config.py`) so swapping it later is trivial.
+- **Inputs are display names**: users type "Project Name" (e.g. `Dev test project`) and "Agent Name" (e.g. `Defect Triage (CrewAI)`). Navigation goes login → projects listing → click project → click agent.
+- UI selectors in `hub_client.py` are marked `# TODO: confirm` — they must be verified against the real AgenticQEAHub platform before a live end-to-end run.
+- Per-agent HITL responses live in `agents/` — `agents/defect_triage_crewai.py` exists; add one file per new agent and register it in `agents/__init__.py`.
+- Using a **personal Gemini API key** for now (prototype). Keep the key access in one place (`app/config.py`) so swapping it later is trivial.
 
 ## How to run
 
@@ -91,7 +91,8 @@ captions. See the metrics table in `README.md` section 5.
 
 - `README.md` — full approved design + rationale (do not contradict it)
 - `docs/IMPLEMENTATION_PLAN.md` — the ordered task list (all 5 phases done)
-- `docs/INSTALL.md` — step-by-step setup and run instructions
+- `docs/INSTALL.md` — step-by-step setup, run instructions, and how to add a new agent
 - `app/agent/state.py` — the shared state object every node reads/writes
 - `app/clients/hub_client.py` — all platform UI selectors live here
+- `agents/` — per-agent HITL prompt configs; one file per agent
 - `frontend/src/` — React components and API client

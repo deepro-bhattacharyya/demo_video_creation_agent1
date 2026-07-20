@@ -1,0 +1,22 @@
+agent_name: "Sample Demo Agent"
+agent_description: >
+  A simple sample agent used for unit testing. Prints a greeting and exits.
+
+run:
+  command: "python main.py"
+  working_dir: "."
+  env: {}
+
+ui:
+  type: terminal
+
+hitl_responses:
+  - prompt_contains: "continue?"
+    response: "yes"
+    response_type: stdin
+
+completion_signals:
+  - "done"
+  - "finished"
+
+timeout_seconds: 60

@@ -38,9 +38,13 @@ _jobs_lock = threading.Lock()
 # ---------------------------------------------------------------------------
 
 class VideoRequest(BaseModel):
-    agent_id: str
-    project_id: str
+    # Hub mode fields
+    agent_name: str = ""
+    project_name: str = ""
     custom_instructions: str = ""
+    # Standalone mode fields
+    source_type: str = "hub"    # "hub" | "standalone"
+    agent_folder: str = ""      # absolute path to local agent folder (standalone only)
 
 
 class ReviewDecision(BaseModel):
@@ -110,13 +114,23 @@ def create_video(req: VideoRequest):
     with _jobs_lock:
         _jobs[thread_id] = {"status": "running"}
 
+    input_state: dict = {
+        "source_type": req.source_type,
+        "agent_name": req.agent_name,
+        "project_name": req.project_name,
+        "custom_instructions": req.custom_instructions,
+    }
+    if req.source_type == "standalone":
+        if not req.agent_folder:
+            raise HTTPException(
+                status_code=422,
+                detail="agent_folder is required when source_type is 'standalone'.",
+            )
+        input_state["agent_folder"] = req.agent_folder
+
     threading.Thread(
         target=_run_graph,
-        args=(thread_id, {
-            "agent_id": req.agent_id,
-            "project_id": req.project_id,
-            "custom_instructions": req.custom_instructions,
-        }),
+        args=(thread_id, input_state),
         daemon=True,
     ).start()
 

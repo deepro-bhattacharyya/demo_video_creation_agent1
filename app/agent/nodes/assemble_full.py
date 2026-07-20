@@ -1,5 +1,6 @@
 """FFmpeg: merge the screen recording with the voice-over -> narrated video."""
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -11,11 +12,9 @@ def assemble_full(state: VideoState) -> dict:
     out_dir = Path(config.OUTPUT_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    out_path = str(out_dir / f"narrated_{state['agent_id']}.mp4")
+    slug     = _slug(state["agent_name"])
+    out_path = str(out_dir / f"narrated_{slug}.mp4")
 
-    # Mux video + audio.  -c:v copy avoids re-encoding the video stream.
-    # -c:a aac converts the WAV narration to AAC for the MP4 container.
-    # -shortest stops at whichever stream ends first (video or audio).
     cmd = [
         "ffmpeg", "-y",
         "-i", state["raw_video_path"],
@@ -35,3 +34,9 @@ def assemble_full(state: VideoState) -> dict:
         "narrated_video_path": out_path,
         "status": "full_assembled",
     }
+
+
+def _slug(name: str) -> str:
+    name = name.lower()
+    name = re.sub(r"[^a-z0-9]+", "_", name)
+    return name.strip("_")

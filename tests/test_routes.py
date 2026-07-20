@@ -21,7 +21,7 @@ def test_health_returns_ok():
 def test_create_video_returns_thread_id():
     response = client.post(
         "/videos",
-        json={"agent_id": "test-agent", "project_id": "test-project"},
+        json={"agent_name": "Test Agent", "project_name": "Test Project"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -32,7 +32,7 @@ def test_create_video_returns_thread_id():
 def test_status_returns_running_for_new_job():
     start = client.post(
         "/videos",
-        json={"agent_id": "test-agent", "project_id": "test-project"},
+        json={"agent_name": "Test Agent", "project_name": "Test Project"},
     )
     thread_id = start.json()["thread_id"]
 
@@ -57,7 +57,7 @@ def test_resume_404_for_unknown_thread():
 def test_resume_400_when_job_not_awaiting_review():
     start = client.post(
         "/videos",
-        json={"agent_id": "test-agent", "project_id": "test-project"},
+        json={"agent_name": "Test Agent", "project_name": "Test Project"},
     )
     thread_id = start.json()["thread_id"]
 
@@ -67,3 +67,52 @@ def test_resume_400_when_job_not_awaiting_review():
         json={"action": "approve"},
     )
     assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Standalone mode routes
+# ---------------------------------------------------------------------------
+
+def test_create_video_standalone_mode_returns_thread_id():
+    response = client.post(
+        "/videos",
+        json={
+            "source_type": "standalone",
+            "agent_folder": "C:/fake/agent",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "thread_id" in data
+    assert data["status"] == "running"
+
+
+def test_create_video_standalone_missing_folder_returns_422():
+    response = client.post(
+        "/videos",
+        json={"source_type": "standalone"},
+    )
+    assert response.status_code == 422
+
+
+def test_create_video_hub_mode_unchanged():
+    response = client.post(
+        "/videos",
+        json={
+            "source_type": "hub",
+            "agent_name": "Test Agent",
+            "project_name": "Test Project",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "running"
+
+
+def test_create_video_default_source_type_is_hub():
+    """Omitting source_type should behave exactly like source_type='hub'."""
+    response = client.post(
+        "/videos",
+        json={"agent_name": "Test Agent", "project_name": "Test Project"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "running"

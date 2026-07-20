@@ -150,23 +150,57 @@ The Vite dev server proxies all `/videos` and `/health` requests to the backend 
 
 ## 7. Using the UI
 
-1. Enter the **Agent ID** and **Project ID** in the form and click **Start Pipeline**.
-2. The pipeline runs in the background (~5–10 min). The page polls for status every 5 seconds automatically.
-3. When the narration script is ready, the **Scene Reviewer** appears — edit any on-screen caption or narration line, then click **Approve & Render** or **Submit Edits**.
-4. After rendering, the **Results** view shows both output file paths.
+The form has a **Source** toggle at the top:
+
+### Platform (Hub) mode
+1. Select **Platform (Hub)** (default).
+2. Enter the **Project Name** (e.g. `Dev test project`) and **Agent Name** (e.g. `Defect Triage (CrewAI)`) exactly as they appear in AgenticQEAHub, then click **Start Pipeline**.
+
+### Standalone Folder mode
+1. Select **Standalone Folder**.
+2. Enter the **absolute path** to the local agent folder (e.g. `C:\Projects\my-agent`).
+   - The folder must contain a `demo_config.yaml` file.
+   - See [docs/STANDALONE_AGENT_MODE.md](STANDALONE_AGENT_MODE.md) for the full YAML spec.
+3. Click **Start Pipeline**.
+
+In both modes:
+- The pipeline runs in the background. The page polls for status every 5 seconds automatically.
+- When the narration script is ready, the **Scene Reviewer** appears — edit any caption or narration line, then click **Approve & Render** or **Submit Edits**.
+- After rendering, the **Results** view shows both output file paths.
 
 ---
 
 ## 8. Output files
 
+Output filenames are derived from the agent display name (spaces and special characters replaced with underscores):
+
 | File | Description |
 |------|-------------|
-| `output/narrated_<agent_id>.mp4` | Full walkthrough with voice-over narration |
-| `output/silent_<agent_id>.mp4` | Condensed cut with on-screen captions, no audio |
+| `output/narrated_<agent_slug>.mp4` | Full walkthrough with voice-over narration |
+| `output/silent_<agent_slug>.mp4` | Condensed cut with on-screen captions, no audio |
+
+Example for "Defect Triage (CrewAI)": `narrated_defect_triage_crewai_.mp4`
 
 ---
 
-## 9. Running with Docker (optional)
+## 9. Adding a new agent (HITL prompts)
+
+When an agent pauses for user input during a run, the automation reads from
+`agents/<agent_slug>.py` to know what to type. To add a new agent:
+
+1. Copy `agents/defect_triage_crewai.py` and rename it (e.g. `agents/hcm_onboarding_langgraph.py`).
+2. Watch a real run of that agent and note the exact prompt text shown at each HITL pause.
+3. Update the `HITL_RESPONSES` list: set `prompt_contains` to a distinctive substring
+   of each prompt and `response` to the answer the automation should type.
+4. Register the new file in `agents/__init__.py` by adding a line to `_REGISTRY`:
+   ```python
+   "hcm_onboarding_langgraph": "agents.hcm_onboarding_langgraph",
+   ```
+5. That's it — the next pipeline run for that agent will pick up the config automatically.
+
+---
+
+## 10. Running with Docker (optional)
 
 The Dockerfile uses a multi-stage build — it builds the React frontend first,
 then packages everything into a single Python image. No Node.js needed on the host.
@@ -193,6 +227,11 @@ The app (backend + frontend) is served at `http://localhost:8000`.
 | `playwright install` fails | Run as administrator / with `sudo` |
 | `ffmpeg: command not found` | Add the `bin` folder of your FFmpeg extract to your user `PATH` (see Windows install steps above), then restart your terminal |
 | Login fails during capture | Verify `HUB_EMAIL`, `HUB_PASSWORD`, and `AGENTICQEAHUB_BASE_URL` in `.env` |
+| `Could not find 'My Project'` | The project/agent name must match exactly what's shown in the platform UI (case-insensitive partial match) |
 | `google-genai` import error | Run `pip install -r requirements.txt` inside the active virtualenv |
 | Frontend shows blank page | Make sure `npm run dev` is running and the backend is up on `:8000` |
 | `npm install` fails | Verify Node.js 18+ is installed: `node --version` |
+| Agent run times out during HITL | Check `agents/<agent>.py` — add or fix the `prompt_contains` entry for the prompt that isn't being handled |
+| Standalone: `demo_config.yaml not found` | The folder path is wrong or the file is missing — create it using the spec in `docs/STANDALONE_AGENT_MODE.md` |
+| Standalone (terminal): no video produced | Confirm FFmpeg is installed and `ffmpeg -version` works; check the agent's `demo_config.yaml` `completion_signals` match actual stdout output |
+| Standalone (web): browser opens but run stalls | Increase `startup_wait_seconds` in `demo_config.yaml` or check that the local server is actually listening on the configured `port` |

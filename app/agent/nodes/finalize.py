@@ -14,8 +14,8 @@ log = structlog.get_logger()
 
 
 def finalize(state: VideoState) -> dict:
-    agent_id = state.get("agent_id", "unknown")
-    log.info("finalize.start", agent_id=agent_id)
+    agent_id = state.get("agent_name", "unknown")
+    log.info("finalize.start", agent=agent_id)
 
     _validate_narrated(state["narrated_video_path"])
     _validate_silent(state["silent_video_path"])
@@ -24,7 +24,7 @@ def finalize(state: VideoState) -> dict:
 
     log.info(
         "finalize.done",
-        agent_id=agent_id,
+        agent=agent_id,
         narrated=state["narrated_video_path"],
         silent=state["silent_video_path"],
     )

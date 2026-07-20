@@ -4,6 +4,7 @@ Each scene's narration is synthesized separately, then all clips are
 concatenated in order into one WAV file that spans the full run.
 """
 
+import re
 import wave
 from pathlib import Path
 
@@ -16,18 +17,16 @@ def synthesize_audio(state: VideoState) -> dict:
     audio_dir = Path(config.OUTPUT_DIR) / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
 
-    agent_id = state["agent_id"]
-    scenes = state["scenes"]
+    slug     = _slug(state["agent_name"])
+    scenes   = state["scenes"]
 
-    # TTS each scene's narration into its own WAV file.
     scene_wavs = []
     for i, scene in enumerate(scenes):
-        wav_path = str(audio_dir / f"{agent_id}_scene_{i:03d}.wav")
+        wav_path = str(audio_dir / f"{slug}_scene_{i:03d}.wav")
         tts_client.synthesize(scene["narration"], wav_path)
         scene_wavs.append(wav_path)
 
-    # Concatenate all scene WAVs into one continuous narration track.
-    final_path = str(audio_dir / f"{agent_id}_narration.wav")
+    final_path = str(audio_dir / f"{slug}_narration.wav")
     _concatenate_wavs(scene_wavs, final_path)
 
     return {
@@ -37,7 +36,7 @@ def synthesize_audio(state: VideoState) -> dict:
 
 
 def _concatenate_wavs(paths: list[str], out_path: str) -> None:
-    """Concatenate WAV files in order into out_path. All inputs must share the same format."""
+    """Concatenate WAV files in order. All inputs must share the same format."""
     params_written = False
     with wave.open(out_path, "wb") as out_wav:
         for path in paths:
@@ -46,3 +45,10 @@ def _concatenate_wavs(paths: list[str], out_path: str) -> None:
                     out_wav.setparams(in_wav.getparams())
                     params_written = True
                 out_wav.writeframes(in_wav.readframes(in_wav.getnframes()))
+
+
+def _slug(name: str) -> str:
+    """Convert a display name to a filesystem-safe slug."""
+    name = name.lower()
+    name = re.sub(r"[^a-z0-9]+", "_", name)
+    return name.strip("_")

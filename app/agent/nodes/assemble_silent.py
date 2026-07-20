@@ -5,6 +5,7 @@ has its on_screen caption burned in, and all clips are concatenated.
 The final file has no audio track.
 """
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -16,7 +17,8 @@ def assemble_silent(state: VideoState) -> dict:
     out_dir = Path(config.OUTPUT_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    out_path = str(out_dir / f"silent_{state['agent_id']}.mp4")
+    slug     = _slug(state["agent_name"])
+    out_path = str(out_dir / f"silent_{slug}.mp4")
 
     filter_complex, out_label = _build_filter_complex(state["scenes"])
 
@@ -40,24 +42,20 @@ def assemble_silent(state: VideoState) -> dict:
 
 def _escape_drawtext(text: str) -> str:
     """Escape text for use inside an FFmpeg drawtext filter value."""
-    text = text.replace("\\", "\\\\")   # backslash first
-    text = text.replace("'",  "\\'")    # single quote
-    text = text.replace(":",  "\\:")    # colon separates filter options
-    text = text.replace("%",  "\\%")    # percent is a drawtext special char
+    text = text.replace("\\", "\\\\")
+    text = text.replace("'",  "\\'")
+    text = text.replace(":",  "\\:")
+    text = text.replace("%",  "\\%")
     return text
 
 
 def _build_filter_complex(scenes: list[dict]) -> tuple[str, str]:
-    """Return (filter_complex_string, output_label) for the silent cut.
-
-    Each scene is trimmed, timestamps are reset, and its on_screen caption
-    is drawn in white at the bottom-centre.  All clips are then concatenated.
-    """
-    parts = []
+    """Return (filter_complex_string, output_label) for the silent cut."""
+    parts  = []
     labels = []
 
     for i, scene in enumerate(scenes):
-        label = f"v{i}"
+        label   = f"v{i}"
         caption = _escape_drawtext(scene["on_screen"])
         parts.append(
             f"[0:v]"
@@ -70,6 +68,12 @@ def _build_filter_complex(scenes: list[dict]) -> tuple[str, str]:
         )
         labels.append(f"[{label}]")
 
-    n = len(scenes)
+    n      = len(scenes)
     concat = "".join(labels) + f"concat=n={n}:v=1:a=0[out]"
     return ";".join(parts) + ";" + concat, "out"
+
+
+def _slug(name: str) -> str:
+    name = name.lower()
+    name = re.sub(r"[^a-z0-9]+", "_", name)
+    return name.strip("_")

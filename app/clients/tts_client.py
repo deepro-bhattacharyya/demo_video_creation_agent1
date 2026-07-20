@@ -1,49 +1,55 @@
-"""Text-to-speech via Google Gemini TTS.
+"""Text-to-speech via Microsoft Edge TTS (edge-tts).
 
-Uses the same GEMINI_API_KEY as script generation — no separate TTS provider needed.
-Output is a WAV file (PCM 24 kHz, mono, 16-bit) at the given path.
+Completely free — no API key, no quota, no billing required.
+Uses the same neural voices as Microsoft Edge browser's Read Aloud feature.
+
+Output is a WAV file (PCM 24 kHz, mono, 16-bit) compatible with the WAV
+concatenation in synthesize_audio.py. FFmpeg converts edge-tts MP3 output
+to WAV — FFmpeg is already a required system dependency (see docs/INSTALL.md).
+
+To list all available voices:
+    edge-tts --list-voices
 """
 
-import wave
+import asyncio
+import subprocess
+from pathlib import Path
 
-from google import genai
-from google.genai import types
+import edge_tts
 
-from app import config
-
-# Voice used for all narration. Change here to swap globally.
-_VOICE = "Kore"
-_TTS_MODEL = "gemini-2.0-flash-preview-tts"
+# Neural voice used for all narration.
+# en-US-AriaNeural — clear, professional female voice (recommended)
+# en-US-GuyNeural  — professional male voice
+# Change here to swap globally; no other file needs updating.
+_VOICE = "en-US-AriaNeural"
 
 
 def synthesize(text: str, out_path: str) -> str:
     """Render `text` to a WAV file at `out_path`; return the path."""
-    client = genai.Client(api_key=config.GEMINI_API_KEY)
+    mp3_path = str(Path(out_path).with_suffix(".mp3"))
 
-    response = client.models.generate_content(
-        model=_TTS_MODEL,
-        contents=text,
-        config=types.GenerateContentConfig(
-            response_modalities=["AUDIO"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name=_VOICE
-                    )
-                )
-            ),
-        ),
+    # edge-tts is async; run it synchronously here so the rest of the
+    # pipeline (which is synchronous) doesn't need to change.
+    asyncio.run(_synthesize_mp3(text, mp3_path))
+
+    # Convert MP3 → WAV (16-bit PCM, 24 kHz, mono) — same spec as the
+    # previous Gemini TTS output so synthesize_audio.py is unchanged.
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-i", mp3_path,
+            "-acodec", "pcm_s16le",
+            "-ar", "24000",
+            "-ac", "1",
+            out_path,
+        ],
+        check=True,
+        capture_output=True,
     )
 
-    audio_bytes: bytes = (
-        response.candidates[0].content.parts[0].inline_data.data
-    )
-
-    # Gemini TTS returns raw 16-bit PCM at 24 kHz mono; wrap in a WAV container.
-    with wave.open(out_path, "wb") as wav:
-        wav.setnchannels(1)
-        wav.setsampwidth(2)   # 16-bit = 2 bytes
-        wav.setframerate(24000)
-        wav.writeframes(audio_bytes)
-
+    Path(mp3_path).unlink(missing_ok=True)
     return out_path
+
+
+async def _synthesize_mp3(text: str, mp3_path: str) -> None:
+    communicate = edge_tts.Communicate(text, voice=_VOICE)
+    await communicate.save(mp3_path)

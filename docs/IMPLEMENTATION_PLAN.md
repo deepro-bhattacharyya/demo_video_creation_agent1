@@ -20,13 +20,15 @@ agent's spec from the platform without writing a single pixel of video.
 ### Platform client (`hub_client.py`)
 - [x] `login(page)`: drive Playwright to `AGENTICQEAHUB_BASE_URL/marketplace` and authenticate
 - [x] Confirm login succeeds (wait for a post-login element to confirm)
-- [x] `get_agent_spec(agent_id)`: return `{"name": ..., "spec": ...}` from the platform
+- [x] `navigate_to_agent(page, project_name, agent_name)`: click through projects listing → agent listing by display name
+- [x] `get_agent_spec(project_name, agent_name)`: return `{"name": ..., "spec": ...}` by navigating via display names
+- [x] HITL handling: `_wait_for_completion_handling_hitl` polls for on-screen prompts and fills responses from `agents/` config
 
 ### `select_agent` node
-- [x] Call `hub_client.get_agent_spec` and populate `agent_name` + `agent_spec` in state
+- [x] Call `hub_client.get_agent_spec(project_name, agent_name)` and populate `agent_display_name` + `agent_spec` in state
 - [x] Keep all UI selectors (login fields, buttons, nav) in `hub_client.py` only
 
-**Done when:** `select_agent` runs end-to-end and prints the agent name + spec for `defect-triaging-crewai`.
+**Done when:** `select_agent` runs end-to-end and prints the agent name + spec for "Defect Triage (CrewAI)" in "Dev test project".
 
 ---
 
@@ -37,10 +39,12 @@ agent's spec from the platform without writing a single pixel of video.
 ### `capture_run` node
 - [x] Launch Playwright with `record_video_dir="output/raw"` and `record_video_size={"width": 1920, "height": 1080}`
 - [x] Call `hub_client.login(page)` to authenticate
-- [x] Navigate to the agent workspace: `?agent=<agent_id>&project=<project_id>`
-- [x] Implement `run_agent_and_collect_events(page, agent_id)` in `hub_client.py`:
+- [x] Navigate to the agent by display name via `hub_client.navigate_to_agent(page, project_name, agent_name)`
+- [x] Load per-agent HITL responses from `agents/` package via `get_agent_config(agent_name)`
+- [x] Implement `run_agent_and_collect_events(page, project_name, agent_name, hitl_responses)` in `hub_client.py`:
+  - Navigate to the project → agent by name
   - Trigger the run
-  - Wait for completion
+  - Poll for run completion, handling HITL prompts automatically along the way
   - Collect step/HITL events into `run_transcript`
 - [x] Close the browser context to finalise the video file
 - [x] Return `raw_video_path`, `run_transcript`, and `status: "captured"`
@@ -126,7 +130,7 @@ agent's spec from the platform without writing a single pixel of video.
 **Goal:** Users can submit jobs, track progress, review scripts, and see output
 paths without touching the command line.
 
-- [x] `PipelineForm` — Agent ID, Project ID, optional custom instructions
+- [x] `PipelineForm` — Project Name, Agent Name (human-readable display names), optional custom instructions
 - [x] `ProgressView` — spinner + step hints; polls `/status` every 5 seconds
 - [x] `SceneReviewer` — editable scene cards (on_screen + narration); sticky Approve / Submit Edits bar
 - [x] `ResultsView` — output file paths, Generate Another button
@@ -137,10 +141,44 @@ paths without touching the command line.
 
 ---
 
+## Phase 6 — Standalone Agent Mode ✅
+
+**Goal:** DemoVideoBot can produce videos for a **local agent folder** (not on
+AgenticQEAHub) by reading a `demo_config.yaml` file from the folder.
+
+### Backend
+- [x] `app/agent/state.py`: added `source_type` (`"hub"` | `"standalone"`) and `agent_folder` fields
+- [x] `app/clients/standalone_client.py`: new module — `load_demo_config` (YAML loader + env-var expansion + validation), `run_and_record` (branches on ui.type), `_run_terminal_agent` (FFmpeg `gdigrab` + subprocess + stdin HITL), `_run_web_agent` (Playwright records local web server)
+- [x] `select_agent` node: branches on `source_type` — standalone reads name/description from `demo_config.yaml`, hub flow unchanged
+- [x] `capture_run` node: branches on `source_type` — standalone calls `standalone_client.run_and_record`, hub flow unchanged
+- [x] `app/api/routes.py`: `VideoRequest` accepts `source_type` and `agent_folder`; validates `agent_folder` is present when `source_type == "standalone"`
+- [x] `requirements.txt`: added `pyyaml>=6.0`
+
+### Frontend
+- [x] `PipelineForm`: source type toggle (Platform Hub / Standalone Folder); shows Project+Agent fields for hub, Folder Path field for standalone
+- [x] `api.js`: `startPipeline` updated to accept an options object and pass `source_type` / `agent_folder`
+- [x] `App.jsx`: passes full `formData` object to `startPipeline`
+- [x] `App.css`: styles for source toggle buttons
+
+### Tests
+- [x] `tests/fixtures/demo_agent/demo_config.yaml`: sample config fixture
+- [x] `tests/test_standalone_client.py`: 16 unit tests (config loading, env-var expansion, validation, web/terminal config fields)
+- [x] `tests/test_routes.py`: 4 new tests (standalone mode, missing folder 422, hub mode unchanged, default source type)
+- [x] **60 tests passing** (up from 41)
+
+**Done when:** `POST /videos` with `{"source_type": "standalone", "agent_folder": "/path/to/agent"}` produces two playable files in `output/`.
+See `docs/STANDALONE_AGENT_MODE.md` for the `demo_config.yaml` spec and integration steps.
+
+---
+
 ## Notes
 
-- First test target: `defect-triaging-crewai` (reference videos already exist for comparison).
+- First test target: "Defect Triage (CrewAI)" in "Dev test project" (reference video exists for comparison).
+- Inputs are display names (e.g. "Defect Triage (CrewAI)", "Dev test project"), not IDs. Navigation is done by clicking through the platform UI.
+- Per-agent HITL responses live in `agents/<slug>.py`. Add a new file + one registry line for each new agent.
+- Output filenames use a slug of the agent display name: `narrated_defect_triage_crewai_.mp4`.
 - Out of scope for v1: multi-language narration, thumbnails/intro branding, publishing to a hosting site.
 - Personal Gemini key is fine for prototyping; move to an org key before wider rollout (one-line change in `config.py`).
 - Gemini TTS is used for voice-over — no separate TTS provider or API key needed.
 - `MemorySaver` stores job state in memory; swap for `SqliteSaver` before multi-worker production deploy.
+- Standalone mode HITL for terminal agents uses stdin; for web UI agents it reuses the same Playwright helpers as the hub flow.

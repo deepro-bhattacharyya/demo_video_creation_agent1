@@ -41,10 +41,10 @@ export default function App() {
     return () => clearInterval(id)
   }, [view, threadId])
 
-  const handleStart = useCallback(async ({ agentId, projectId, customInstructions }) => {
+  const handleStart = useCallback(async (formData) => {
     setError(null)
     try {
-      const data = await startPipeline(agentId, projectId, customInstructions)
+      const data = await startPipeline(formData)
       setThreadId(data.thread_id)
       setView('running')
     } catch (e) {

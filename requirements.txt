@@ -4,7 +4,7 @@ langgraph>=0.2
 # Browser automation + screen recording
 playwright>=1.44
 
-# LLM for script generation + TTS for voice-over (both use the same Gemini API key)
+# LLM for script generation (1 call per pipeline run)
 google-genai>=1.0
 
 # API server
@@ -13,6 +13,14 @@ uvicorn[standard]>=0.29
 
 # Config / env
 python-dotenv>=1.0
+pyyaml>=6.0          # demo_config.yaml loader for standalone agent mode
+
+# Windows certificate store integration
+# Makes Python trust the same CAs as Windows (including corporate proxy certs).
+truststore>=0.9
+
+# TTS voice-over — free, no API key, no quota
+edge-tts>=6.1
 
 # Logging
 structlog>=24.1

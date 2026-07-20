@@ -10,13 +10,21 @@ async function request(path, options = {}) {
   return res.json()
 }
 
-export const startPipeline = (agentId, projectId, customInstructions) =>
+export const startPipeline = ({
+  agentName = '',
+  projectName = '',
+  customInstructions = '',
+  sourceType = 'hub',
+  agentFolder = '',
+} = {}) =>
   request('/videos', {
     method: 'POST',
     body: JSON.stringify({
-      agent_id: agentId,
-      project_id: projectId,
+      agent_name: agentName,
+      project_name: projectName,
       custom_instructions: customInstructions,
+      source_type: sourceType,
+      agent_folder: agentFolder,
     }),
   })
 

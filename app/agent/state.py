@@ -9,11 +9,13 @@ from typing import TypedDict
 
 class VideoState(TypedDict, total=False):
     # --- Input ---
-    agent_id: str            # e.g. "defect-triaging-crewai"
-    project_id: str
+    source_type: str         # "hub" (default) | "standalone"
+    agent_name: str          # display name, e.g. "Defect Triage (CrewAI)"
+    project_name: str        # display name, e.g. "Dev test project"
+    agent_folder: str        # absolute path to local agent folder (standalone only)
 
     # --- Fetched from the platform ---
-    agent_name: str
+    agent_display_name: str  # canonical name as shown in the platform
     agent_spec: str          # the agent's documentation / spec text
     run_id: str
     run_transcript: list[dict]   # structured step/HITL events from the run
