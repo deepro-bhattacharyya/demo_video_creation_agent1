@@ -32,6 +32,7 @@ def synthesize_audio(state: VideoState) -> dict:
     return {
         "narration_audio_path": final_path,
         "status": "audio_ready",
+        "completed_steps": state.get("completed_steps", []) + ["synthesize_audio"],
     }
 
 

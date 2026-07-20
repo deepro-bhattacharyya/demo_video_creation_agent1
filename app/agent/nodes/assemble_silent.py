@@ -37,6 +37,7 @@ def assemble_silent(state: VideoState) -> dict:
     return {
         "silent_video_path": out_path,
         "status": "silent_assembled",
+        "completed_steps": state.get("completed_steps", []) + ["assemble_silent"],
     }
 
 

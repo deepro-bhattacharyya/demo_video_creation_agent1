@@ -13,7 +13,10 @@ from app.agent.state import VideoState
 def review_script(state: VideoState) -> dict:
     # Auto-approve path — no human pause needed.
     if config.SKIP_REVIEW:
-        return {"script_status": "approved"}
+        return {
+            "script_status": "approved",
+            "completed_steps": state.get("completed_steps", []) + ["review_script"],
+        }
 
     # Surface the current scenes and any client instructions for human review.
     decision = interrupt({
@@ -27,7 +30,11 @@ def review_script(state: VideoState) -> dict:
         return {
             "scenes": decision["scenes"],
             "script_status": "pending_review",
+            "completed_steps": state.get("completed_steps", []) + ["review_script"],
         }
 
     # "approve" (or any other value): accept the current scenes as-is.
-    return {"script_status": "approved"}
+    return {
+        "script_status": "approved",
+        "completed_steps": state.get("completed_steps", []) + ["review_script"],
+    }

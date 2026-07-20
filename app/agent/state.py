@@ -35,3 +35,6 @@ class VideoState(TypedDict, total=False):
     narrated_video_path: str
     silent_video_path: str
     status: str
+
+    # --- Progress tracking ---
+    completed_steps: list[str]   # node names that have finished, in order

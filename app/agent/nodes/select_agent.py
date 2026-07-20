@@ -17,6 +17,7 @@ def select_agent(state: VideoState) -> dict:
             "agent_display_name": cfg["agent_name"],
             "agent_spec": cfg.get("agent_description", ""),
             "status": "selected",
+            "completed_steps": state.get("completed_steps", []) + ["select_agent"],
         }
 
     info = hub_client.get_agent_spec(state["project_name"], state["agent_name"])
@@ -24,4 +25,5 @@ def select_agent(state: VideoState) -> dict:
         "agent_display_name": info["name"],
         "agent_spec": info["spec"],
         "status": "selected",
+        "completed_steps": state.get("completed_steps", []) + ["select_agent"],
     }

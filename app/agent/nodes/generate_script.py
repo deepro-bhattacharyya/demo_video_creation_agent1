@@ -38,6 +38,7 @@ def generate_script(state: VideoState) -> dict:
         "scenes": scenes,
         "script_status": "pending_review",
         "status": "scripted",
+        "completed_steps": state.get("completed_steps", []) + ["generate_script"],
     }
 
 

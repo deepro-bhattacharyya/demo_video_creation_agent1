@@ -28,7 +28,10 @@ def finalize(state: VideoState) -> dict:
         narrated=state["narrated_video_path"],
         silent=state["silent_video_path"],
     )
-    return {"status": "done"}
+    return {
+        "status": "done",
+        "completed_steps": state.get("completed_steps", []) + ["finalize"],
+    }
 
 
 # ---------------------------------------------------------------------------

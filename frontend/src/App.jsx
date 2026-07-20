@@ -14,6 +14,8 @@ export default function App() {
   const [customInstructions, setCustomInstructions] = useState('')
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [completedSteps, setCompletedSteps] = useState([])
+  const [currentNode, setCurrentNode] = useState(null)
 
   // Poll for job status while the pipeline is running in the background.
   useEffect(() => {
@@ -21,6 +23,9 @@ export default function App() {
     const id = setInterval(async () => {
       try {
         const data = await getStatus(threadId)
+        // Update per-step progress on every tick, regardless of status change.
+        setCompletedSteps(data.completed_steps ?? [])
+        setCurrentNode(data.current_node ?? null)
         if (data.status === 'awaiting_review') {
           setScenes(data.scenes ?? [])
           setCustomInstructions(data.custom_instructions ?? '')
@@ -70,6 +75,8 @@ export default function App() {
     setScenes([])
     setResult(null)
     setError(null)
+    setCompletedSteps([])
+    setCurrentNode(null)
   }
 
   return (
@@ -83,7 +90,9 @@ export default function App() {
 
       <main className="app-main">
         {view === 'idle'            && <PipelineForm onSubmit={handleStart} />}
-        {view === 'running'         && <ProgressView />}
+        {view === 'running'         && (
+          <ProgressView completedSteps={completedSteps} currentNode={currentNode} />
+        )}
         {view === 'awaiting_review' && (
           <SceneReviewer
             scenes={scenes}

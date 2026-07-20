@@ -51,6 +51,7 @@ def _capture_standalone(state: VideoState) -> dict:
         "raw_video_path": video_path,
         "run_transcript": transcript,
         "status": "captured",
+        "completed_steps": state.get("completed_steps", []) + ["capture_run"],
     }
 
 
@@ -109,6 +110,7 @@ def _capture_hub(state: VideoState) -> dict:
         "raw_video_path": video_path,
         "run_transcript": transcript,
         "status": "captured",
+        "completed_steps": state.get("completed_steps", []) + ["capture_run"],
     }
 
 

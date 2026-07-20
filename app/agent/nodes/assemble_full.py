@@ -33,6 +33,7 @@ def assemble_full(state: VideoState) -> dict:
     return {
         "narrated_video_path": out_path,
         "status": "full_assembled",
+        "completed_steps": state.get("completed_steps", []) + ["assemble_full"],
     }
 
 

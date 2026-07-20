@@ -139,12 +139,34 @@ def create_video(req: VideoRequest):
 
 @app.get("/videos/{thread_id}/status")
 def get_status(thread_id: str):
-    """Return the current status of a pipeline job."""
+    """Return the current status of a pipeline job, plus per-step progress.
+
+    completed_steps / current_node come from the LangGraph checkpoint so the
+    UI can show live per-step ticks as each node finishes.
+    """
     with _jobs_lock:
         job = _jobs.get(thread_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found.")
-    return {"thread_id": thread_id, **job}
+
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        snapshot = graph.get_state(config)
+        completed_steps = (
+            snapshot.values.get("completed_steps", [])
+            if snapshot and snapshot.values else []
+        )
+        current_node = snapshot.next[0] if snapshot and snapshot.next else None
+    except Exception:
+        completed_steps = []
+        current_node = None
+
+    return {
+        "thread_id": thread_id,
+        **job,
+        "completed_steps": completed_steps,
+        "current_node": current_node,
+    }
 
 
 @app.post("/videos/{thread_id}/resume")
