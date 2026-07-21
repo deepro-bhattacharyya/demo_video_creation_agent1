@@ -16,14 +16,14 @@ def assemble_full(state: VideoState) -> dict:
     out_path = str(out_dir / f"narrated_{slug}.mp4")
 
     cmd = [
-        "ffmpeg", "-y",
-        "-i", state["raw_video_path"],
-        "-i", state["narration_audio_path"],
-        "-map", "0:v:0",
-        "-map", "1:a:0",
-        "-c:v", "copy",
-        "-c:a", "aac",
-        "-shortest",
+        "ffmpeg", "-y",                        # -y: overwrite output file if it already exists
+        "-i", state["raw_video_path"],          # input 0: the raw screen recording (from Playwright)
+        "-i", state["narration_audio_path"],    # input 1: the Edge TTS voice-over WAV
+        "-map", "0:v:0",                        # take the video stream from input 0 (the recording)
+        "-map", "1:a:0",                        # take the audio stream from input 1 (the voice-over)
+        "-c:v", "copy",                         # copy video as-is — no re-encoding, much faster
+        "-c:a", "aac",                          # encode audio to AAC so MP4 container accepts it
+        "-shortest",                            # stop when the shorter stream ends (avoids silence padding)
         out_path,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)

@@ -196,32 +196,42 @@ class VideoState(TypedDict):
 
 ```
 demo-video-agent/
-├── agents/                       # per-agent HITL prompt configs (one file per agent)
-│   ├── __init__.py               # registry: maps display names → config modules
-│   └── defect_triage_crewai.py  # HITL prompts + responses for Defect Triage (CrewAI)
-├── app/
-│   ├── agent/
-│   │   ├── graph.py              # StateGraph definition + checkpointer wiring
-│   │   ├── state.py              # VideoState schema
-│   │   └── nodes/
-│   │       ├── select_agent.py
-│   │       ├── capture_run.py
-│   │       ├── generate_script.py
-│   │       ├── review_script.py
-│   │       ├── synthesize_audio.py
-│   │       ├── assemble_full.py
-│   │       ├── assemble_silent.py
-│   │       └── finalize.py
-│   ├── clients/
-│   │   ├── hub_client.py         # AgenticQEAHub — all UI selectors live here
-│   │   └── tts_client.py         # Gemini TTS wrapper
-│   ├── api/
-│   │   └── routes.py             # FastAPI routes + background thread job store
-│   └── config.py                 # All env vars loaded here; fails loudly if missing
-├── frontend/
+├── backend/                      # all Python / server-side code
+│   ├── agents/                   # per-agent HITL prompt configs (one file per agent)
+│   │   ├── __init__.py           # registry: maps display names → config modules
+│   │   └── defect_triage_crewai.py  # HITL prompts + responses for Defect Triage (CrewAI)
+│   ├── app/
+│   │   ├── agent/
+│   │   │   ├── graph.py          # StateGraph definition + checkpointer wiring
+│   │   │   ├── state.py          # VideoState schema
+│   │   │   └── nodes/
+│   │   │       ├── select_agent.py
+│   │   │       ├── capture_run.py
+│   │   │       ├── generate_script.py
+│   │   │       ├── review_script.py
+│   │   │       ├── synthesize_audio.py
+│   │   │       ├── assemble_full.py
+│   │   │       ├── assemble_silent.py
+│   │   │       └── finalize.py
+│   │   ├── clients/
+│   │   │   ├── hub_client.py     # AgenticQEAHub — all UI selectors live here
+│   │   │   └── tts_client.py     # Gemini TTS wrapper
+│   │   ├── api/
+│   │   │   └── routes.py         # FastAPI routes + background thread job store
+│   │   └── config.py             # All env vars loaded here; fails loudly if missing
+│   ├── tests/
+│   │   ├── conftest.py
+│   │   ├── test_generate_script.py
+│   │   ├── test_synthesize_audio.py
+│   │   ├── test_assemble.py
+│   │   ├── test_finalize.py
+│   │   └── test_routes.py
+│   ├── scripts/                  # dev/QA utilities (screenshots, selector mapping)
+│   └── requirements.txt
+├── frontend/                     # React web UI
 │   ├── src/
 │   │   ├── App.jsx               # State machine + polling logic
-│   │   ├── App.css               # Dark theme styles
+│   │   ├── App.css               # Light-mode styles with Cognizant brand accent
 │   │   ├── api.js                # fetch wrappers for all three API calls
 │   │   └── components/
 │   │       ├── PipelineForm.jsx  # Project Name / Agent Name / instructions form
@@ -230,16 +240,7 @@ demo-video-agent/
 │   │       └── ResultsView.jsx   # Output file paths + Generate Another
 │   ├── vite.config.js            # Proxies /videos + /health to :8000 in dev
 │   └── package.json
-├── docs/
-│   ├── IMPLEMENTATION_PLAN.md
-│   └── INSTALL.md
-├── tests/
-│   ├── conftest.py
-│   ├── test_generate_script.py
-│   ├── test_synthesize_audio.py
-│   ├── test_assemble.py
-│   ├── test_finalize.py
-│   └── test_routes.py
+├── docs/                         # full documentation
 ├── output/                       # generated videos land here
 ├── .env.example
 ├── Dockerfile                    # multi-stage: Node build + Python runtime
@@ -339,7 +340,7 @@ def capture_run(state: VideoState) -> dict:
 
 | Option | How |
 |--------|-----|
-| Local (dev) | Two terminals: `uvicorn` + `npm run dev` — see `docs/INSTALL.md` |
+| Local (dev) | Two terminals: `cd backend && uvicorn app.api.routes:app --reload` + `cd frontend && npm run dev` — see `docs/INSTALL.md` |
 | Production (single process) | `npm run build` in `frontend/`, then `uvicorn` — FastAPI serves the React build |
 | Docker | `docker build -t demo-video-bot . && docker run --env-file .env -p 8000:8000 demo-video-bot` |
 | Docker Compose | `docker compose up -d` |

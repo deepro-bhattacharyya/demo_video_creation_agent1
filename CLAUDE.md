@@ -66,9 +66,10 @@ code is NOT part of this repo — do not try to import or vendor it.
 
 **Backend**
 ```bash
+cd backend
 pip install -r requirements.txt
 python -m playwright install chromium
-cp .env.example .env      # then fill in real values locally (never commit)
+cp ../.env.example ../.env      # then fill in real values locally (never commit)
 uvicorn app.api.routes:app --reload
 ```
 
@@ -92,7 +93,7 @@ captions. See the metrics table in `README.md` section 5.
 - `README.md` — full approved design + rationale (do not contradict it)
 - `docs/IMPLEMENTATION_PLAN.md` — the ordered task list (all 5 phases done)
 - `docs/INSTALL.md` — step-by-step setup, run instructions, and how to add a new agent
-- `app/agent/state.py` — the shared state object every node reads/writes
-- `app/clients/hub_client.py` — all platform UI selectors live here
-- `agents/` — per-agent HITL prompt configs; one file per agent
+- `backend/app/agent/state.py` — the shared state object every node reads/writes
+- `backend/app/clients/hub_client.py` — all platform UI selectors live here
+- `backend/agents/` — per-agent HITL prompt configs; one file per agent
 - `frontend/src/` — React components and API client

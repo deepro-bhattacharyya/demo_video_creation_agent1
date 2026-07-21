@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Python dependencies (layer-cached unless requirements.txt changes)
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Playwright: Chromium browser + its OS-level deps
@@ -24,7 +24,8 @@ RUN playwright install chromium
 RUN playwright install-deps chromium
 
 # Application source
-COPY app/ ./app/
+COPY backend/app/ ./app/
+COPY backend/agents/ ./agents/
 
 # React build — served by FastAPI's StaticFiles at runtime
 COPY --from=frontend-build /frontend/dist ./frontend/dist

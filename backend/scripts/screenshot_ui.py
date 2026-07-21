@@ -8,7 +8,7 @@ Run with the dev server up on :5173:
 import os
 from playwright.sync_api import sync_playwright
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "images")
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs", "images")
 os.makedirs(OUT, exist_ok=True)
 
 STATUS_BODY = (
