@@ -207,9 +207,21 @@ def health():
 # ---------------------------------------------------------------------------
 # Serve the React build in production (mounted after all API routes)
 # ---------------------------------------------------------------------------
-_frontend_dist = (
-    pathlib.Path(__file__).parent / ".." / ".." / "frontend" / "dist"
-).resolve()
+def _find_frontend_dist() -> pathlib.Path | None:
+    """Locate the built React app (frontend/dist) by walking up from this file.
 
-if _frontend_dist.is_dir():
+    This keeps working regardless of nesting: locally the Python code lives under
+    backend/app/... while frontend/ sits at the repo root, whereas in Docker app/
+    and frontend/ sit side by side under /app. Searching upward finds it in both.
+    """
+    for base in pathlib.Path(__file__).resolve().parents:
+        candidate = base / "frontend" / "dist"
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+_frontend_dist = _find_frontend_dist()
+
+if _frontend_dist is not None:
     app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")

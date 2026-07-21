@@ -123,6 +123,6 @@ The short version:
 1. Install Python 3.11+, Node.js, and FFmpeg
 2. `pip install -r requirements.txt`
 3. Copy `.env.example` to `.env` and fill in your credentials and API key
-4. Start the backend: `uvicorn app.api.routes:app --reload`
+4. Start the backend: `cd backend && uvicorn app.api.routes:app --reload`
 5. Start the frontend: `cd frontend && npm run dev`
 6. Open `http://localhost:5173`

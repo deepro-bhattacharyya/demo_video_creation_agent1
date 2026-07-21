@@ -65,7 +65,7 @@ ui:
   startup_wait_seconds: 10        # how long to wait before opening the browser
 
 # --- Run inputs (pre-run form fill, web UI only) ---
-# Same structure as RUN_INPUTS in the platform agents/ config.
+# Same structure as RUN_INPUTS in the platform backend/agents/ config.
 # Omit entirely if the agent needs no form input before running.
 run_inputs:
   - label: "Query"
@@ -75,7 +75,7 @@ run_inputs:
     value: "Analyze this dataset"
 
 # --- HITL responses (mid-run prompts) ---
-# Same structure as HITL_RESPONSES in the platform agents/ config.
+# Same structure as HITL_RESPONSES in the platform backend/agents/ config.
 # Use response_type "stdin" for terminal agents (types into the process stdin).
 # Use response_type "button" or "text" for web UI agents (clicks in the browser).
 hitl_responses:
@@ -101,7 +101,7 @@ timeout_seconds: 300              # max run time before treating as failure (def
 
 ## 3. Pipeline changes
 
-### 3.1  State (`app/agent/state.py`)
+### 3.1  State (`backend/app/agent/state.py`)
 
 Add two new optional fields:
 
@@ -143,7 +143,7 @@ Branch on `source_type`:
 
 ---
 
-## 4. New module: `app/clients/standalone_client.py`
+## 4. New module: `backend/app/clients/standalone_client.py`
 
 This module handles everything specific to the standalone flow.
 
@@ -222,7 +222,7 @@ Add a **"Source"** radio/toggle to `PipelineForm`:
 
 Both show the existing Custom Instructions field below.
 
-### 5.3  API change (`app/api/routes.py`)
+### 5.3  API change (`backend/app/api/routes.py`)
 
 Accept two new body fields:
 
@@ -241,8 +241,8 @@ When `source_type` is `"hub"` (or omitted), behaviour is identical to today.
 
 | File | Purpose |
 |------|---------|
-| `app/clients/standalone_client.py` | FFmpeg recording, subprocess launch, HITL via stdin |
-| `app/agent/nodes/select_agent_standalone.py` | OR add a branch inside the existing `select_agent.py` |
+| `backend/app/clients/standalone_client.py` | FFmpeg recording, subprocess launch, HITL via stdin |
+| `backend/app/agent/nodes/select_agent_standalone.py` | OR add a branch inside the existing `select_agent.py` |
 
 Preference: add branches **inside the existing nodes** (`select_agent.py`,
 `capture_run.py`) rather than creating separate node files — the graph wiring
@@ -301,5 +301,5 @@ Work through this in order — each step is independently testable:
   contain real secret values.
 - All selectors for web UI agents go in `standalone_client.py` (same principle
   as hub selectors living in `hub_client.py`).
-- The `agents/` directory is for **platform agents only** — standalone agent
+- The `backend/agents/` directory is for **platform agents only** — standalone agent
   config lives inside the agent's own folder (`demo_config.yaml`).

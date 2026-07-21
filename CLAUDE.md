@@ -64,12 +64,12 @@ code is NOT part of this repo — do not try to import or vendor it.
 
 ## How to run
 
-**Backend**
+**Backend** (run from the repo root; `requirements.txt` and `.env` live here)
 ```bash
-cd backend
 pip install -r requirements.txt
 python -m playwright install chromium
-cp ../.env.example ../.env      # then fill in real values locally (never commit)
+cp .env.example .env      # then fill in real values locally (never commit)
+cd backend                # the app package is imported as `app`, so run from here
 uvicorn app.api.routes:app --reload
 ```
 

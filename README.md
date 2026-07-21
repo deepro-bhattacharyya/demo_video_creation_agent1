@@ -226,8 +226,7 @@ demo-video-agent/
 │   │   ├── test_assemble.py
 │   │   ├── test_finalize.py
 │   │   └── test_routes.py
-│   ├── scripts/                  # dev/QA utilities (screenshots, selector mapping)
-│   └── requirements.txt
+│   └── scripts/                  # dev/QA utilities (screenshots, selector mapping)
 ├── frontend/                     # React web UI
 │   ├── src/
 │   │   ├── App.jsx               # State machine + polling logic
@@ -242,6 +241,7 @@ demo-video-agent/
 │   └── package.json
 ├── docs/                         # full documentation
 ├── output/                       # generated videos land here
+├── requirements.txt              # Python dependencies (installed from repo root)
 ├── .env.example
 ├── Dockerfile                    # multi-stage: Node build + Python runtime
 └── docker-compose.yml

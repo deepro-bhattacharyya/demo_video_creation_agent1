@@ -11,20 +11,20 @@ Platform agents run on the AgenticQEAHub platform. DemoVideoBot logs in, navigat
 to the agent's workspace, fills the run form, clicks through any mid-run prompts
 (HITL), and records everything.
 
-Each platform agent needs its own config file in the `agents/` directory.
+Each platform agent needs its own config file in the `backend/agents/` directory.
 
 ### Step 1 — Create the config file
 
 Copy an existing file as a starting point:
 
 ```bash
-cp agents/defect_triage_crewai.py agents/my_new_agent.py
+cp backend/agents/defect_triage_crewai.py backend/agents/my_new_agent.py
 ```
 
 ### Step 2 — Fill in the config
 
 ```python
-# agents/my_new_agent.py
+# backend/agents/my_new_agent.py
 
 AGENT_NAME = "My New Agent"
 AGENT_SLUG = "my-new-agent"
@@ -89,7 +89,7 @@ COMPLETION_TEXTS: list[str] = [
 
 ### Step 3 — Register the agent
 
-Open `agents/__init__.py` and add a line to `_REGISTRY`:
+Open `backend/agents/__init__.py` and add a line to `_REGISTRY`:
 
 ```python
 _REGISTRY: dict[str, str] = {
@@ -127,7 +127,7 @@ Before running the full pipeline, inspect the actual platform UI:
 4. Note the exact text shown when the run finishes.
 5. Update `RUN_INPUTS`, `HITL_RESPONSES`, and `COMPLETION_TEXTS` accordingly.
 
-> **Tip:** The `scripts/` folder contains diagnostic scripts you can run against
+> **Tip:** The `backend/scripts/` folder contains diagnostic scripts you can run against
 > the live platform to map selectors interactively.
 
 ---

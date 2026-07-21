@@ -128,7 +128,7 @@ The folder path is wrong or the file is missing. Check:
 
 ### Blank page in the browser
 Make sure both servers are running:
-- Backend: `uvicorn app.api.routes:app --reload` (port 8000)
+- Backend: `cd backend && uvicorn app.api.routes:app --reload` (port 8000)
 - Frontend: `cd frontend && npm run dev` (port 5173)
 
 ### `npm install` fails

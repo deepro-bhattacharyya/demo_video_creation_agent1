@@ -15,14 +15,14 @@ agent's spec from the platform without writing a single pixel of video.
 - [x] `playwright install chromium`
 - [x] Copy `.env.example` to `.env` and fill in real values locally
 - [x] Confirm `.env` is git-ignored and never committed
-- [x] `app/config.py` loads all env vars in one place and fails loudly if one is missing
+- [x] `backend/app/config.py` loads all env vars in one place and fails loudly if one is missing
 
 ### Platform client (`hub_client.py`)
 - [x] `login(page)`: drive Playwright to `AGENTICQEAHUB_BASE_URL/marketplace` and authenticate
 - [x] Confirm login succeeds (wait for a post-login element to confirm)
 - [x] `navigate_to_agent(page, project_name, agent_name)`: click through projects listing → agent listing by display name
 - [x] `get_agent_spec(project_name, agent_name)`: return `{"name": ..., "spec": ...}` by navigating via display names
-- [x] HITL handling: `_wait_for_completion_handling_hitl` polls for on-screen prompts and fills responses from `agents/` config
+- [x] HITL handling: `_wait_for_completion_handling_hitl` polls for on-screen prompts and fills responses from `backend/agents/` config
 
 ### `select_agent` node
 - [x] Call `hub_client.get_agent_spec(project_name, agent_name)` and populate `agent_display_name` + `agent_spec` in state
@@ -40,7 +40,7 @@ agent's spec from the platform without writing a single pixel of video.
 - [x] Launch Playwright with `record_video_dir="output/raw"` and `record_video_size={"width": 1920, "height": 1080}`
 - [x] Call `hub_client.login(page)` to authenticate
 - [x] Navigate to the agent by display name via `hub_client.navigate_to_agent(page, project_name, agent_name)`
-- [x] Load per-agent HITL responses from `agents/` package via `get_agent_config(agent_name)`
+- [x] Load per-agent HITL responses from `backend/agents/` package via `get_agent_config(agent_name)`
 - [x] Implement `run_agent_and_collect_events(page, project_name, agent_name, hitl_responses)` in `hub_client.py`:
   - Navigate to the project → agent by name
   - Trigger the run
@@ -116,7 +116,7 @@ agent's spec from the platform without writing a single pixel of video.
 - [x] Unit tests: **41 passing** across all phases (generate_script, synthesize_audio, assemble, finalize, routes, graph)
 
 ### Deployment
-- [x] `uvicorn app.api.routes:app --reload` starts cleanly with a valid `.env`
+- [x] `cd backend && uvicorn app.api.routes:app --reload` starts cleanly with a valid `.env`
 - [x] `GET /health` returns `{"status": "ok"}` (verified in test suite)
 - [x] Multi-stage `Dockerfile` (Node build + Python runtime) and `docker-compose.yml` created
 - [x] FastAPI serves the React build from `/` in production (no separate web server needed)
@@ -147,11 +147,11 @@ paths without touching the command line.
 AgenticQEAHub) by reading a `demo_config.yaml` file from the folder.
 
 ### Backend
-- [x] `app/agent/state.py`: added `source_type` (`"hub"` | `"standalone"`) and `agent_folder` fields
-- [x] `app/clients/standalone_client.py`: new module — `load_demo_config` (YAML loader + env-var expansion + validation), `run_and_record` (branches on ui.type), `_run_terminal_agent` (FFmpeg `gdigrab` + subprocess + stdin HITL), `_run_web_agent` (Playwright records local web server)
+- [x] `backend/app/agent/state.py`: added `source_type` (`"hub"` | `"standalone"`) and `agent_folder` fields
+- [x] `backend/app/clients/standalone_client.py`: new module — `load_demo_config` (YAML loader + env-var expansion + validation), `run_and_record` (branches on ui.type), `_run_terminal_agent` (FFmpeg `gdigrab` + subprocess + stdin HITL), `_run_web_agent` (Playwright records local web server)
 - [x] `select_agent` node: branches on `source_type` — standalone reads name/description from `demo_config.yaml`, hub flow unchanged
 - [x] `capture_run` node: branches on `source_type` — standalone calls `standalone_client.run_and_record`, hub flow unchanged
-- [x] `app/api/routes.py`: `VideoRequest` accepts `source_type` and `agent_folder`; validates `agent_folder` is present when `source_type == "standalone"`
+- [x] `backend/app/api/routes.py`: `VideoRequest` accepts `source_type` and `agent_folder`; validates `agent_folder` is present when `source_type == "standalone"`
 - [x] `requirements.txt`: added `pyyaml>=6.0`
 
 ### Frontend
@@ -161,9 +161,9 @@ AgenticQEAHub) by reading a `demo_config.yaml` file from the folder.
 - [x] `App.css`: styles for source toggle buttons
 
 ### Tests
-- [x] `tests/fixtures/demo_agent/demo_config.yaml`: sample config fixture
-- [x] `tests/test_standalone_client.py`: 16 unit tests (config loading, env-var expansion, validation, web/terminal config fields)
-- [x] `tests/test_routes.py`: 4 new tests (standalone mode, missing folder 422, hub mode unchanged, default source type)
+- [x] `backend/tests/fixtures/demo_agent/demo_config.yaml`: sample config fixture
+- [x] `backend/tests/test_standalone_client.py`: 16 unit tests (config loading, env-var expansion, validation, web/terminal config fields)
+- [x] `backend/tests/test_routes.py`: 4 new tests (standalone mode, missing folder 422, hub mode unchanged, default source type)
 - [x] **60 tests passing** (up from 41)
 
 **Done when:** `POST /videos` with `{"source_type": "standalone", "agent_folder": "/path/to/agent"}` produces two playable files in `output/`.
@@ -175,7 +175,7 @@ See `docs/STANDALONE_AGENT_MODE.md` for the `demo_config.yaml` spec and integrat
 
 - First test target: "Defect Triage (CrewAI)" in "Dev test project" (reference video exists for comparison).
 - Inputs are display names (e.g. "Defect Triage (CrewAI)", "Dev test project"), not IDs. Navigation is done by clicking through the platform UI.
-- Per-agent HITL responses live in `agents/<slug>.py`. Add a new file + one registry line for each new agent.
+- Per-agent HITL responses live in `backend/agents/<slug>.py`. Add a new file + one registry line for each new agent.
 - Output filenames use a slug of the agent display name: `narrated_defect_triage_crewai_.mp4`.
 - Out of scope for v1: multi-language narration, thumbnails/intro branding, publishing to a hosting site.
 - Personal Gemini key is fine for prototyping; move to an org key before wider rollout (one-line change in `config.py`).

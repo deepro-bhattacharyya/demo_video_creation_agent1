@@ -129,6 +129,7 @@ Open **two terminals** in the project root:
 
 **Terminal 1 — backend**
 ```bash
+cd backend
 uvicorn app.api.routes:app --reload
 ```
 API available at `http://127.0.0.1:8000`. Verify:
@@ -186,13 +187,13 @@ Example for "Defect Triage (CrewAI)": `narrated_defect_triage_crewai_.mp4`
 ## 9. Adding a new agent (HITL prompts)
 
 When an agent pauses for user input during a run, the automation reads from
-`agents/<agent_slug>.py` to know what to type. To add a new agent:
+`backend/agents/<agent_slug>.py` to know what to type. To add a new agent:
 
-1. Copy `agents/defect_triage_crewai.py` and rename it (e.g. `agents/hcm_onboarding_langgraph.py`).
+1. Copy `backend/agents/defect_triage_crewai.py` and rename it (e.g. `backend/agents/hcm_onboarding_langgraph.py`).
 2. Watch a real run of that agent and note the exact prompt text shown at each HITL pause.
 3. Update the `HITL_RESPONSES` list: set `prompt_contains` to a distinctive substring
    of each prompt and `response` to the answer the automation should type.
-4. Register the new file in `agents/__init__.py` by adding a line to `_REGISTRY`:
+4. Register the new file in `backend/agents/__init__.py` by adding a line to `_REGISTRY`:
    ```python
    "hcm_onboarding_langgraph": "agents.hcm_onboarding_langgraph",
    ```
@@ -231,7 +232,7 @@ The app (backend + frontend) is served at `http://localhost:8000`.
 | `google-genai` import error | Run `pip install -r requirements.txt` inside the active virtualenv |
 | Frontend shows blank page | Make sure `npm run dev` is running and the backend is up on `:8000` |
 | `npm install` fails | Verify Node.js 18+ is installed: `node --version` |
-| Agent run times out during HITL | Check `agents/<agent>.py` — add or fix the `prompt_contains` entry for the prompt that isn't being handled |
+| Agent run times out during HITL | Check `backend/agents/<agent>.py` — add or fix the `prompt_contains` entry for the prompt that isn't being handled |
 | Standalone: `demo_config.yaml not found` | The folder path is wrong or the file is missing — create it using the spec in `docs/STANDALONE_AGENT_MODE.md` |
 | Standalone (terminal): no video produced | Confirm FFmpeg is installed and `ffmpeg -version` works; check the agent's `demo_config.yaml` `completion_signals` match actual stdout output |
 | Standalone (web): browser opens but run stalls | Increase `startup_wait_seconds` in `demo_config.yaml` or check that the local server is actually listening on the configured `port` |
